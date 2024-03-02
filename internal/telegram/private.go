@@ -3,8 +3,8 @@ package telegram
 import (
 	"context"
 
+	"github.com/gotd/td/telegram/message"
 	"github.com/gotd/td/tg"
-	"github.com/k0kubun/pp"
 )
 
 //api := tg.NewClient(client)
@@ -21,6 +21,9 @@ fmt.Println(result.InputPeer().TypeName()) */
 
 //_, err := sender.Reply(entities, update).Text(ctx, m.Message)
 
-func HandlePrivateMessage(ctx context.Context, entities tg.Entities, update *tg.UpdateNewMessage) {
-	pp.Println("PrivateMessage")
+/* Parse all commands here */
+func HandlePrivateMessage(ctx context.Context, entities tg.Entities, update *tg.UpdateNewMessage, sender *message.Sender) error {
+	m := update.Message.(*tg.Message)
+	_, err := sender.Reply(entities, update).Text(ctx, m.Message)
+	return err
 }

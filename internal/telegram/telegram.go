@@ -7,10 +7,10 @@ import (
 
 	"github.com/go-faster/errors"
 	"github.com/gotd/td/telegram"
+	"github.com/gotd/td/telegram/message"
 	"github.com/gotd/td/telegram/peers"
 	"github.com/gotd/td/telegram/updates"
 	"github.com/gotd/td/tg"
-	"github.com/k0kubun/pp"
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
 )
@@ -19,20 +19,18 @@ func Run(ctx context.Context, config *config.ConfigStructure) error {
 	log, _ := zap.NewDevelopment(zap.IncreaseLevel(zapcore.InfoLevel), zap.AddStacktrace(zapcore.FatalLevel))
 	defer func() { _ = log.Sync() }()
 
-	var (
-		dispatcher = tg.NewUpdateDispatcher()
-		handler    telegram.UpdateHandler
-	)
+	dispatcher := tg.NewUpdateDispatcher()
 
 	options := telegram.Options{
-		Logger: log.Named("client"),
-		UpdateHandler: telegram.UpdateHandlerFunc(func(ctx context.Context, u tg.UpdatesClass) error {
-			return handler.Handle(ctx, u)
-		}),
+		Logger:         log.Named("client"),
+		UpdateHandler:  dispatcher,
 		SessionStorage: &session.Storage{},
 	}
 
 	client := telegram.NewClient(config.AppID, config.AppHash, options)
+
+	api := tg.NewClient(client)
+	sender := message.NewSender(api)
 
 	peerManager := peers.Options{
 		Logger: log,
@@ -44,49 +42,54 @@ func Run(ctx context.Context, config *config.ConfigStructure) error {
 		Logger:       log.Named("gaps"),
 	})
 
-	handler = peerManager.UpdateHook(gaps)
-
-	/* listen a channels messages */
+	/* listen messages in a channels */
 	dispatcher.OnNewChannelMessage(func(ctx context.Context, entities tg.Entities, update *tg.UpdateNewChannelMessage) error {
-		HandleChannelMessage(ctx, entities, update)
-		return nil
+		return HandleChannelMessage(ctx, entities, update, sender)
 	})
 
-	/* listen a messages sended to bot, it can be pm or group */
+	/* listen a messages sended to bot, it can be pm or chat */
 	dispatcher.OnNewMessage(func(ctx context.Context, entities tg.Entities, update *tg.UpdateNewMessage) error {
 		m, ok := update.Message.(*tg.Message)
 		if !ok || m.Out {
 			return nil
 		}
 
-		switch v := m.PeerID.(type) {
+		switch m.PeerID.(type) {
 		case *tg.PeerUser: // if msg received in pm
-			HandlePrivateMessage(ctx, entities, update)
+			return HandlePrivateMessage(ctx, entities, update, sender)
 		case *tg.PeerChat: // if msg received in chat
-			HandleGroupChatMessage(ctx, entities, update)
-		case *tg.PeerChannel:
-			pp.Println("tg.PeerChannel")
-		default:
-			panic(v)
+			return HandleGroupChatMessage(ctx, entities, update, sender)
 		}
 
 		return nil
 	})
 
 	return client.Run(ctx, func(ctx context.Context) error {
-		if _, err := client.Auth().Bot(ctx, config.APIToken); err != nil {
-			return errors.Wrap(err, "auth")
+		if err := peerManager.Init(ctx); err != nil {
+			return err
 		}
 
-		user, err := client.Self(ctx)
+		/* Check auth status, session maybe is valid */
+		status, err := client.Auth().Status(ctx)
 		if err != nil {
-			return errors.Wrap(err, "call self")
+			return err
 		}
 
-		return gaps.Run(ctx, client.API(), user.ID, updates.AuthOptions{
-			OnStart: func(ctx context.Context) {
-				log.Info("Bot Connected")
-			},
+		/* Can be already authenticated if we have valid session in session storage. */
+		if !status.Authorized {
+			if _, err := client.Auth().Bot(ctx, config.APIToken); err != nil {
+				return errors.Wrap(err, "auth")
+			}
+		}
+
+		u, err := peerManager.Self(ctx)
+		if err != nil {
+			return err
+		}
+
+		_, isBot := u.ToBot()
+		return gaps.Run(ctx, client.API(), u.ID(), updates.AuthOptions{
+			IsBot: isBot,
 		})
 	})
 }

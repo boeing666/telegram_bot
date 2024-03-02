@@ -23,19 +23,19 @@ func (s *Storage) LoadSession(context.Context) ([]byte, error) {
 	s.mux.Lock()
 	defer s.mux.Unlock()
 
-	session, err := os.ReadFile(storageFile)
+	sessionBytes, err := os.ReadFile(storageFile)
 	if err != nil {
-		return nil, fmt.Errorf("error on reading session: %w", err)
+		return nil, fmt.Errorf("error on reading session: %w", session.ErrNotFound)
 	}
 
-	return session, nil
+	return sessionBytes, nil
 }
 
 func (s *Storage) StoreSession(ctx context.Context, data []byte) error {
 	s.mux.Lock()
 	defer s.mux.Unlock()
 
-	err := os.WriteFile(storageFile, data, 0700)
+	err := os.WriteFile(storageFile, data, 0600)
 	if err != nil {
 		return fmt.Errorf("error on writing session: %w", err)
 	}
