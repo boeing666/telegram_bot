@@ -1,25 +1,39 @@
 package main
 
 import (
-	"fmt"
+	"context"
 	"os"
-
-	"github.com/mymmrac/telego"
+	"os/signal"
+	"tg_reader_bot/internal/config"
+	"tg_reader_bot/internal/container"
+	"tg_reader_bot/internal/database"
+	"tg_reader_bot/internal/session"
+	"tg_reader_bot/internal/telegram"
 )
 
 func main() {
-	botToken := os.Getenv("BOT_TOKEN")
-
-	bot, err := telego.NewBot(botToken, telego.WithDefaultDebugLogger())
+	err := session.Init()
 	if err != nil {
-		fmt.Println(err)
-		os.Exit(1)
+		panic(err)
 	}
 
-	botUser, err := bot.GetMe()
+	config, err := config.Init()
 	if err != nil {
-		fmt.Println("Error:", err)
+		panic(err)
 	}
 
-	fmt.Printf("Bot user: %+v\n", botUser)
+	db, err := database.Init(config.GetDatabaseQuery())
+	if err != nil {
+		panic(err)
+	}
+
+	container := container.GetContainer()
+	container.Init(config, db)
+
+	ctx, cancel := signal.NotifyContext(context.Background(), os.Interrupt)
+	defer cancel()
+
+	if err := telegram.Run(ctx, config); err != nil {
+		panic(err)
+	}
 }

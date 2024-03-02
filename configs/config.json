@@ -1,0 +1,11 @@
+{
+    "app_id": 0,
+    "app_hash": "",
+    "api_token": "",
+    "db_settings": {
+        "host": "",
+        "username": "",
+        "password": "",
+        "database": ""
+    }
+}
