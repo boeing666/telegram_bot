@@ -2,11 +2,11 @@ package session
 
 import (
 	"context"
-	"fmt"
 	"os"
 	"path"
 	"sync"
 
+	"github.com/go-faster/errors"
 	"github.com/gotd/td/session"
 )
 
@@ -25,7 +25,7 @@ func (s *Storage) LoadSession(context.Context) ([]byte, error) {
 
 	sessionBytes, err := os.ReadFile(storageFile)
 	if err != nil {
-		return nil, fmt.Errorf("error on reading session: %w", session.ErrNotFound)
+		return nil, errors.Wrap(err, "error on reading session")
 	}
 
 	return sessionBytes, nil
@@ -37,7 +37,7 @@ func (s *Storage) StoreSession(ctx context.Context, data []byte) error {
 
 	err := os.WriteFile(storageFile, data, 0600)
 	if err != nil {
-		return fmt.Errorf("error on writing session: %w", err)
+		return errors.Wrap(err, "error on writing session")
 	}
 
 	return nil
@@ -45,7 +45,7 @@ func (s *Storage) StoreSession(ctx context.Context, data []byte) error {
 
 func Init() error {
 	if err := os.MkdirAll(path.Dir(storageFile), 0700); err != nil {
-		return fmt.Errorf("storage dir create: %w", err)
+		return errors.Wrap(err, "storage dir create")
 	}
 	return nil
 }

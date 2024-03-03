@@ -3,6 +3,7 @@ package telegram
 import (
 	"context"
 	"tg_reader_bot/internal/config"
+	"tg_reader_bot/internal/container"
 	"tg_reader_bot/internal/session"
 
 	"github.com/go-faster/errors"
@@ -11,9 +12,33 @@ import (
 	"github.com/gotd/td/telegram/peers"
 	"github.com/gotd/td/telegram/updates"
 	"github.com/gotd/td/tg"
+	"github.com/k0kubun/pp"
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
 )
+
+func registerCommandsInBot(ctx context.Context, client *tg.Client) error {
+	container := container.GetContainer()
+	handlers := container.Handler.Commands
+
+	commands := make([]tg.BotCommand, 0, len(handlers))
+	for key, value := range handlers {
+		commands = append(commands, tg.BotCommand{
+			Command:     key,
+			Description: value.Description,
+		})
+	}
+	pp.Println(commands)
+
+	if _, err := client.BotsSetBotCommands(ctx, &tg.BotsSetBotCommandsRequest{
+		Scope:    &tg.BotCommandScopeDefault{},
+		Commands: commands,
+	}); err != nil {
+		return errors.Wrap(err, "register commands")
+	}
+
+	return nil
+}
 
 func Run(ctx context.Context, config *config.ConfigStructure) error {
 	log, _ := zap.NewDevelopment(zap.IncreaseLevel(zapcore.InfoLevel), zap.AddStacktrace(zapcore.FatalLevel))
@@ -28,9 +53,7 @@ func Run(ctx context.Context, config *config.ConfigStructure) error {
 	}
 
 	client := telegram.NewClient(config.AppID, config.AppHash, options)
-
-	api := tg.NewClient(client)
-	sender := message.NewSender(api)
+	sender := message.NewSender(client.API())
 
 	peerManager := peers.Options{
 		Logger: log,
@@ -44,7 +67,7 @@ func Run(ctx context.Context, config *config.ConfigStructure) error {
 
 	/* listen messages in a channels */
 	dispatcher.OnNewChannelMessage(func(ctx context.Context, entities tg.Entities, update *tg.UpdateNewChannelMessage) error {
-		return HandleChannelMessage(ctx, entities, update, sender)
+		return handleChannelMessage(ctx, entities, update, sender)
 	})
 
 	/* listen a messages sended to bot, it can be pm or chat */
@@ -56,9 +79,9 @@ func Run(ctx context.Context, config *config.ConfigStructure) error {
 
 		switch m.PeerID.(type) {
 		case *tg.PeerUser: // if msg received in pm
-			return HandlePrivateMessage(ctx, entities, update, sender)
+			return handlePrivateMessage(ctx, entities, update, sender)
 		case *tg.PeerChat: // if msg received in chat
-			return HandleGroupChatMessage(ctx, entities, update, sender)
+			return handleGroupChatMessage(ctx, entities, update, sender)
 		}
 
 		return nil
@@ -80,6 +103,11 @@ func Run(ctx context.Context, config *config.ConfigStructure) error {
 			if _, err := client.Auth().Bot(ctx, config.APIToken); err != nil {
 				return errors.Wrap(err, "auth")
 			}
+		}
+
+		err = registerCommandsInBot(ctx, client.API())
+		if err != nil {
+			return err
 		}
 
 		u, err := peerManager.Self(ctx)

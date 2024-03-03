@@ -5,6 +5,8 @@ import (
 	"fmt"
 	"net/url"
 	"os"
+
+	"github.com/go-faster/errors"
 )
 
 type ConfigStructure struct {
@@ -22,12 +24,13 @@ type ConfigStructure struct {
 func Init() (*ConfigStructure, error) {
 	jsonFile, err := os.ReadFile("configs/config.json")
 	if err != nil {
-		return nil, fmt.Errorf("error on reading config: %w", err)
+
+		return nil, errors.Wrap(err, "error on reading config")
 	}
 	var config ConfigStructure
 	err = json.Unmarshal(jsonFile, &config)
 	if err != nil {
-		return nil, fmt.Errorf("error on parsing config file: %w", err)
+		return nil, errors.Wrap(err, "error on parsing config file")
 	}
 	return &config, nil
 }

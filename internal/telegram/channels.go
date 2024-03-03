@@ -8,7 +8,7 @@ import (
 	"github.com/k0kubun/pp"
 )
 
-func HandleChannelMessage(ctx context.Context, entities tg.Entities, update *tg.UpdateNewChannelMessage, sender *message.Sender) error {
+func handleChannelMessage(ctx context.Context, entities tg.Entities, update *tg.UpdateNewChannelMessage, sender *message.Sender) error {
 	pp.Println("ChannelMessage")
 	return nil
 }

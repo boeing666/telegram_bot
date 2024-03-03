@@ -3,12 +3,14 @@ package container
 import (
 	"database/sql"
 	"sync"
+	"tg_reader_bot/internal/commands"
 	"tg_reader_bot/internal/config"
 )
 
 type Container struct {
-	config   *config.ConfigStructure
-	database *sql.DB
+	Config   *config.ConfigStructure
+	Database *sql.DB
+	Handler  *commands.Handler
 }
 
 var (
@@ -16,9 +18,10 @@ var (
 	once      sync.Once
 )
 
-func (c *Container) Init(config *config.ConfigStructure, database *sql.DB) {
-	container.config = config
-	container.database = database
+func (c *Container) Init(config *config.ConfigStructure, database *sql.DB, handler *commands.Handler) {
+	container.Config = config
+	container.Database = database
+	container.Handler = handler
 }
 
 func GetContainer() *Container {

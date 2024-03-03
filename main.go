@@ -4,6 +4,7 @@ import (
 	"context"
 	"os"
 	"os/signal"
+	"tg_reader_bot/internal/commands"
 	"tg_reader_bot/internal/config"
 	"tg_reader_bot/internal/container"
 	"tg_reader_bot/internal/database"
@@ -27,8 +28,13 @@ func main() {
 		panic(err)
 	}
 
+	handler := commands.Init()
+	if err != nil {
+		panic(err)
+	}
+
 	container := container.GetContainer()
-	container.Init(config, db)
+	container.Init(config, db, handler)
 
 	ctx, cancel := signal.NotifyContext(context.Background(), os.Interrupt)
 	defer cancel()
