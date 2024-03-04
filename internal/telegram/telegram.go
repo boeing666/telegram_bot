@@ -2,6 +2,7 @@ package telegram
 
 import (
 	"context"
+	"tg_reader_bot/internal/commands"
 	"tg_reader_bot/internal/config"
 	"tg_reader_bot/internal/container"
 	"tg_reader_bot/internal/session"
@@ -12,7 +13,6 @@ import (
 	"github.com/gotd/td/telegram/peers"
 	"github.com/gotd/td/telegram/updates"
 	"github.com/gotd/td/tg"
-	"github.com/k0kubun/pp"
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
 )
@@ -28,7 +28,6 @@ func registerCommandsInBot(ctx context.Context, client *tg.Client) error {
 			Description: value.Description,
 		})
 	}
-	pp.Println(commands)
 
 	if _, err := client.BotsSetBotCommands(ctx, &tg.BotsSetBotCommandsRequest{
 		Scope:    &tg.BotCommandScopeDefault{},
@@ -77,11 +76,13 @@ func Run(ctx context.Context, config *config.ConfigStructure) error {
 			return nil
 		}
 
+		msg := commands.MessageContext{Ctx: ctx, Entities: entities, Update: update, Sender: sender, Args: nil}
+
 		switch m.PeerID.(type) {
 		case *tg.PeerUser: // if msg received in pm
-			return handlePrivateMessage(ctx, entities, update, sender)
+			return handlePrivateMessage(msg)
 		case *tg.PeerChat: // if msg received in chat
-			return handleGroupChatMessage(ctx, entities, update, sender)
+			return handleGroupChatMessage(msg)
 		}
 
 		return nil

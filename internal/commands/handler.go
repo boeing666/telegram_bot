@@ -9,7 +9,14 @@ import (
 
 type commandInfo struct {
 	Description string
-	callback    func(context.Context, tg.Entities, *tg.UpdateNewMessage, *message.Sender) error
+	callback    func(MessageContext) error
+}
+type MessageContext struct {
+	Ctx      context.Context
+	Entities tg.Entities
+	Update   *tg.UpdateNewMessage
+	Sender   *message.Sender
+	Args     []string
 }
 
 type Handler struct {
@@ -23,13 +30,13 @@ func Init() *Handler {
 	return &handler
 }
 
-func (h *Handler) addCommand(name string, desciption string, callback func(context.Context, tg.Entities, *tg.UpdateNewMessage, *message.Sender) error) {
+func (h *Handler) addCommand(name string, desciption string, callback func(MessageContext) error) {
 	h.Commands[name] = commandInfo{desciption, callback}
 }
 
-func (h *Handler) Handle(name string, ctx context.Context, entities tg.Entities, update *tg.UpdateNewMessage, sender *message.Sender) (bool, error) {
+func (h *Handler) Handle(name string, msg MessageContext) (bool, error) {
 	if command, ok := h.Commands[name]; ok {
-		return true, command.callback(ctx, entities, update, sender)
+		return true, command.callback(msg)
 	}
 	return false, nil
 }

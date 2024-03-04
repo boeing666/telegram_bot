@@ -1,27 +1,30 @@
 package telegram
 
 import (
-	"context"
+	"strings"
+	"tg_reader_bot/internal/commands"
 	"tg_reader_bot/internal/container"
 
-	"github.com/gotd/td/telegram/message"
 	"github.com/gotd/td/tg"
 )
 
 /* Parse all commands here */
-func handlePrivateMessage(ctx context.Context, entities tg.Entities, update *tg.UpdateNewMessage, sender *message.Sender) error {
-	m := update.Message.(*tg.Message)
+func handlePrivateMessage(msg commands.MessageContext) error {
+	m := msg.Update.Message.(*tg.Message)
+	msg.Args = strings.Split(m.Message, " ")
+
 	if m.Message[0] == '/' {
 		container := container.GetContainer()
-		ok, err := container.Handler.Handle(m.Message[1:], ctx, entities, update, sender)
+		ok, err := container.Handler.Handle(msg.Args[0][1:], msg)
 		if err != nil {
 			return err
 		}
 		if !ok {
-			_, err := sender.Answer(entities, update).Text(ctx, "Неизвестная команда.")
+			_, err := msg.Sender.Answer(msg.Entities, msg.Update).Text(msg.Ctx, "Неизвестная команда.")
 			return err
 		}
 	}
+
 	return nil
 }
 

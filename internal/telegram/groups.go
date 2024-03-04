@@ -1,14 +1,12 @@
 package telegram
 
 import (
-	"context"
+	"tg_reader_bot/internal/commands"
 
-	"github.com/gotd/td/telegram/message"
-	"github.com/gotd/td/tg"
 	"github.com/k0kubun/pp"
 )
 
-func handleGroupChatMessage(ctx context.Context, entities tg.Entities, update *tg.UpdateNewMessage, sender *message.Sender) error {
+func handleGroupChatMessage(msg commands.MessageContext) error {
 	pp.Println("GroupChatMessage")
 	return nil
 }

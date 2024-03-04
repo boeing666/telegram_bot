@@ -1,27 +1,20 @@
 package commands
 
-import (
-	"context"
-
-	"github.com/gotd/td/telegram/message"
-	"github.com/gotd/td/tg"
-)
-
-func startCommand(ctx context.Context, entities tg.Entities, update *tg.UpdateNewMessage, sender *message.Sender) error {
-	_, err := sender.Answer(entities, update).Text(ctx, "Вы ввели start.")
+func startCommand(msg MessageContext) error {
+	_, err := msg.Sender.Answer(msg.Entities, msg.Update).Text(msg.Ctx, "Вы ввели start.")
 	return err
 }
 
-func listenCommand(ctx context.Context, entities tg.Entities, update *tg.UpdateNewMessage, sender *message.Sender) error {
-	_, err := sender.Answer(entities, update).Text(ctx, "Вы ввели listen.")
+func listenCommand(msg MessageContext) error {
+	_, err := msg.Sender.Answer(msg.Entities, msg.Update).Text(msg.Ctx, "Вы ввели listen.")
 	return err
 }
 
-func unlistenCommand(ctx context.Context, entities tg.Entities, update *tg.UpdateNewMessage, sender *message.Sender) error {
+func unlistenCommand(msg MessageContext) error {
 	return nil
 }
 
-func printCommand(ctx context.Context, entities tg.Entities, update *tg.UpdateNewMessage, sender *message.Sender) error {
+func printCommand(msg MessageContext) error {
 	return nil
 }
 
