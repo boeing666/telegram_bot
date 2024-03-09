@@ -5,13 +5,14 @@ go 1.21.6
 require (
 	github.com/go-sql-driver/mysql v1.7.1
 	github.com/gotd/td v0.98.0
+	github.com/k0kubun/pp/v3 v3.2.0
 	go.uber.org/zap v1.27.0
 )
 
 require (
-	github.com/k0kubun/colorstring v0.0.0-20150214042306-9440f1994b88 // indirect
 	github.com/mattn/go-colorable v0.1.13 // indirect
 	github.com/mattn/go-isatty v0.0.16 // indirect
+	golang.org/x/text v0.14.0 // indirect
 )
 
 require (
@@ -21,7 +22,6 @@ require (
 	github.com/go-faster/xor v1.0.0 // indirect
 	github.com/gotd/ige v0.2.2 // indirect
 	github.com/gotd/neo v0.1.5 // indirect
-	github.com/k0kubun/pp v3.0.1+incompatible
 	github.com/klauspost/compress v1.17.7 // indirect
 	github.com/segmentio/asm v1.2.0 // indirect
 	go.opentelemetry.io/otel v1.23.1 // indirect
