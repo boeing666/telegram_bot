@@ -2,12 +2,10 @@ package bot
 
 import (
 	"tg_reader_bot/internal/events"
-
-	"github.com/k0kubun/pp/v3"
 )
 
 func (b *Bot) handleChannelMessage(msg events.Message) error {
-	pp.Println("ChannelMessage")
+
 	return nil
 }
 
@@ -17,6 +15,6 @@ func (b *Bot) handlePrivateMessage(msg events.Message) error {
 }
 
 func (b *Bot) handleGroupChatMessage(msg events.Message) error {
-	pp.Println("GroupChatMessage")
+
 	return nil
 }
