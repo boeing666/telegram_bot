@@ -24,7 +24,7 @@ func (s *Storage) LoadSession(context.Context) ([]byte, error) {
 	defer s.mux.Unlock()
 
 	sessionBytes, err := os.ReadFile(storageFile)
-	if err != nil {
+	if err != nil && !os.IsNotExist(err) {
 		return nil, errors.Wrap(err, "error on reading session")
 	}
 

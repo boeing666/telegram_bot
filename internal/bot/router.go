@@ -36,7 +36,14 @@ func (b *Bot) onNewMessage(ctx context.Context, entities tg.Entities, update *tg
 	return nil
 }
 
+/* called when someone pressed the button */
+func (b *Bot) BotCallbackQuery(ctx context.Context, entities tg.Entities, update *tg.UpdateBotCallbackQuery) error {
+	/* handle inline callback button here */
+	return nil
+}
+
 func (b *Bot) UpdateHandles(d tg.UpdateDispatcher) {
 	d.OnNewChannelMessage(b.onNewChannelMessage)
 	d.OnNewMessage(b.onNewMessage)
+	d.OnBotCallbackQuery(b.BotCallbackQuery)
 }
