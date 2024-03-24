@@ -38,8 +38,11 @@ func (b *Bot) onNewMessage(ctx context.Context, entities tg.Entities, update *tg
 
 /* called when someone pressed the button */
 func (b *Bot) BotCallbackQuery(ctx context.Context, entities tg.Entities, update *tg.UpdateBotCallbackQuery) error {
-	/* handle inline callback button here */
-	return nil
+	_, err := b.Client.MessagesSetBotCallbackAnswer(ctx, &tg.MessagesSetBotCallbackAnswerRequest{
+		QueryID: update.QueryID,
+		Message: string(update.Data),
+	})
+	return err
 }
 
 func (b *Bot) UpdateHandles(d tg.UpdateDispatcher) {
