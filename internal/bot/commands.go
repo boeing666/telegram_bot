@@ -14,11 +14,11 @@ func (b *Bot) startCommand(msg events.Message) error {
 	buttons := markup.InlineRow(
 		markup.Callback(
 			"Добавить канал",
-			[]byte("Добавить канал"),
+			b.buildQuery(AddNewChannel, ""),
 		),
 		markup.Callback(
 			"Мои каналы",
-			[]byte("Мои каналы"),
+			b.buildQuery(MyChannels, ""),
 		),
 	)
 
