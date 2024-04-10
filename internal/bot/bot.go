@@ -5,6 +5,7 @@ import (
 	"tg_reader_bot/internal/events"
 	"time"
 
+	"github.com/allegro/bigcache"
 	"github.com/gotd/td/telegram/message"
 	"github.com/gotd/td/tg"
 )
@@ -54,6 +55,7 @@ type Bot struct {
 	startTime      uint64
 	commands       map[string]commandInfo
 	queryCallbacks map[uint32]queryCallback
+	cache          bigcache.BigCache
 }
 
 func Init(client *tg.Client) *Bot {
@@ -64,6 +66,8 @@ func Init(client *tg.Client) *Bot {
 		commands:       make(map[string]commandInfo),
 		queryCallbacks: make(map[uint32]queryCallback),
 	}
+	cache, _ := bigcache.NewBigCache(bigcache.DefaultConfig(10 * time.Minute))
+	bot.cache = *cache
 	bot.registerCommands()
 	bot.registerQueryCallbacks()
 	return bot

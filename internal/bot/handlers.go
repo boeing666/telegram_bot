@@ -11,6 +11,7 @@ func (b *Bot) handleChannelMessage(msg events.Message) error {
 
 /* Parse all commands here */
 func (b *Bot) handlePrivateMessage(msg events.Message) error {
+
 	return b.Dispatch(msg.GetMessageText(), msg)
 }
 

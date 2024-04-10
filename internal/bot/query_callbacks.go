@@ -1,16 +1,12 @@
 package bot
 
-import "fmt"
-
 func (b *Bot) callbackAddNewChannel(data queryContext) error {
-	fmt.Println("callbackAddNewChannel")
-	fmt.Println(data.Update)
+
 	return nil
 }
 
 func (b *Bot) callbackMyChannels(data queryContext) error {
-	fmt.Println("callbackMyChannels")
-	fmt.Println(data.Update)
+
 	return nil
 }
 
