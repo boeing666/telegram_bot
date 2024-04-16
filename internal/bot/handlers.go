@@ -11,6 +11,14 @@ func (b *Bot) handleChannelMessage(msg events.Message) error {
 
 /* Parse all commands here */
 func (b *Bot) handlePrivateMessage(msg events.Message) error {
+	ok, err := b.stateHandler(msg)
+	if ok {
+		return nil
+	}
+
+	if err != nil {
+		return err
+	}
 
 	return b.Dispatch(msg.GetMessageText(), msg)
 }

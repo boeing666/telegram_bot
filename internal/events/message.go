@@ -8,10 +8,13 @@ import (
 )
 
 type Message struct {
-	Ctx      context.Context
-	Entities tg.Entities
-	Update   message.AnswerableMessageUpdate
-	Message  *tg.Message
+	Ctx         context.Context
+	Entities    tg.Entities
+	Update      message.AnswerableMessageUpdate
+	Message     *tg.Message
+	PeerUser    *tg.User
+	PeerChat    *tg.Chat
+	PeerChannel *tg.Channel
 }
 
 func (m *Message) GetMessageText() string {

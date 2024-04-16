@@ -15,7 +15,14 @@ func (b *Bot) onNewChannelMessage(ctx context.Context, entities tg.Entities, upd
 		return nil
 	}
 
-	return b.handleChannelMessage(events.Message{Ctx: ctx, Entities: entities, Update: update, Message: m})
+	peerChannel := m.PeerID.(*tg.PeerChannel)
+	tgChannel, ok := entities.Channels[peerChannel.ChannelID]
+	if !ok {
+		return nil
+	}
+
+	msg := events.Message{Ctx: ctx, Entities: entities, Update: update, Message: m, PeerChannel: tgChannel}
+	return b.handleChannelMessage(msg)
 }
 
 /* listen a messages sended to bot, it can be pm or chat */
@@ -29,8 +36,18 @@ func (b *Bot) onNewMessage(ctx context.Context, entities tg.Entities, update *tg
 
 	switch m.PeerID.(type) {
 	case *tg.PeerUser: // if msg received in pm
+		peerUser := m.PeerID.(*tg.PeerUser)
+		msg.PeerUser, ok = entities.Users[peerUser.UserID]
+		if !ok {
+			return nil
+		}
 		return b.handlePrivateMessage(msg)
 	case *tg.PeerChat: // if msg received in chat
+		peerChat := m.PeerID.(*tg.PeerChat)
+		msg.PeerChat, ok = entities.Chats[peerChat.ChatID]
+		if !ok {
+			return nil
+		}
 		return b.handleGroupChatMessage(msg)
 	}
 
@@ -57,6 +74,7 @@ func (b *Bot) botCallbackQuery(ctx context.Context, entities tg.Entities, update
 	if callback, ok := b.queryCallbacks[queryData.Action]; ok {
 		return callback(msg)
 	}
+
 	return nil
 }
 

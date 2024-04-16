@@ -1,7 +1,7 @@
 package bot
 
 func (b *Bot) callbackAddNewChannel(data queryContext) error {
-
+	b.setUserState(data.Update.UserID, WaitingChannelName)
 	return nil
 }
 
