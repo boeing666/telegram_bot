@@ -2,6 +2,7 @@ package bot
 
 import (
 	"context"
+	"tg_reader_bot/internal/cache"
 	"tg_reader_bot/internal/events"
 	"time"
 
@@ -10,7 +11,7 @@ import (
 	"github.com/muesli/cache2go"
 )
 
-type queryCallback func(queryContext) error
+type btnCallback func(buttonContext) error
 
 const (
 	AddNewChannel = iota
@@ -31,14 +32,16 @@ type QueryHeader struct {
 	Data   string
 }
 
-type queryContext struct {
-	Ctx      context.Context
-	Entities tg.Entities
-	Update   *tg.UpdateBotCallbackQuery
-	Data     string
+type buttonContext struct {
+	Ctx       context.Context
+	Entities  tg.Entities
+	Update    *tg.UpdateBotCallbackQuery
+	User      *tg.User
+	UserCache *cache.UserCache
+	Data      string
 }
 
-type CallbackData struct {
+type buttonData struct {
 	CreatedTime int64
 	ActionType  uint32
 	Data        []byte
@@ -50,22 +53,22 @@ type commandInfo struct {
 }
 
 type Bot struct {
-	Client         *tg.Client
-	Sender         *message.Sender
-	startTime      uint64
-	commands       map[string]commandInfo
-	queryCallbacks map[uint32]queryCallback
-	cache          cache2go.CacheTable
+	Client        *tg.Client
+	Sender        *message.Sender
+	startTime     uint64
+	cmdsCallbacks map[string]commandInfo
+	btnCallbacks  map[uint32]btnCallback
+	cache         cache2go.CacheTable
 }
 
 func Init(client *tg.Client) *Bot {
 	bot := &Bot{
-		Client:         client,
-		Sender:         message.NewSender(client),
-		startTime:      uint64(time.Now().Unix()),
-		commands:       make(map[string]commandInfo),
-		queryCallbacks: make(map[uint32]queryCallback),
-		cache:          *cache2go.Cache("users"),
+		Client:        client,
+		Sender:        message.NewSender(client),
+		startTime:     uint64(time.Now().Unix()),
+		cmdsCallbacks: make(map[string]commandInfo),
+		btnCallbacks:  make(map[uint32]btnCallback),
+		cache:         *cache2go.Cache("users"),
 	}
 
 	bot.registerCommands()

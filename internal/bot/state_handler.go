@@ -1,15 +1,25 @@
 package bot
 
-import "tg_reader_bot/internal/events"
+import (
+	"tg_reader_bot/internal/cache"
+	"tg_reader_bot/internal/events"
+)
+
+func (b *Bot) enterChannelName(userCache *cache.UserCache, msg events.Message) (bool, error) {
+	b.Answer(msg).Text(msg.Ctx, msg.GetMessageText())
+	userCache.State = cache.StateNone
+	return true, nil
+}
 
 func (b *Bot) stateHandler(msg events.Message) (bool, error) {
 	user := b.getOrCreateUser(msg.PeerUser.ID)
-	if user.state == StateNone {
+	if user.State == cache.StateNone {
 		return false, nil
 	}
-	switch user.state {
-	case WaitingChannelName:
-
+	switch user.State {
+	case cache.WaitingChannelName:
+		return b.enterChannelName(user, msg)
 	}
-	return true, nil
+
+	return false, nil
 }

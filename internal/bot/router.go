@@ -54,7 +54,7 @@ func (b *Bot) onNewMessage(ctx context.Context, entities tg.Entities, update *tg
 	return nil
 }
 
-/* called when someone pressed the button */
+/* called when someone pressed the inline-button */
 func (b *Bot) botCallbackQuery(ctx context.Context, entities tg.Entities, update *tg.UpdateBotCallbackQuery) error {
 	var queryData QueryHeader
 	if err := json.Unmarshal(update.Data, &queryData); err != nil {
@@ -70,8 +70,14 @@ func (b *Bot) botCallbackQuery(ctx context.Context, entities tg.Entities, update
 		return err
 	}
 
-	msg := queryContext{Ctx: ctx, Entities: entities, Update: update, Data: queryData.Data}
-	if callback, ok := b.queryCallbacks[queryData.Action]; ok {
+	user, ok := entities.Users[update.UserID]
+	if !ok {
+		return nil
+	}
+
+	userCache := b.getOrCreateUser(update.UserID)
+	msg := buttonContext{Ctx: ctx, Entities: entities, Update: update, User: user, UserCache: userCache, Data: queryData.Data}
+	if callback, ok := b.btnCallbacks[queryData.Action]; ok {
 		return callback(msg)
 	}
 
@@ -83,10 +89,3 @@ func (b *Bot) UpdateHandles(d tg.UpdateDispatcher) {
 	d.OnNewMessage(b.onNewMessage)
 	d.OnBotCallbackQuery(b.botCallbackQuery)
 }
-
-/*
-	_, err := b.Client.MessagesSetBotCallbackAnswer(ctx, &tg.MessagesSetBotCallbackAnswerRequest{
-		QueryID: update.QueryID,
-		Message: string(update.Data),
-	})
-*/

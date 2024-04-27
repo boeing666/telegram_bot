@@ -1,55 +1,58 @@
 package bot
 
-func (b *Bot) callbackAddNewChannel(data queryContext) error {
-	b.setUserState(data.Update.UserID, WaitingChannelName)
+import "tg_reader_bot/internal/cache"
+
+func (b *Bot) callbackAddNewChannel(btn buttonContext) error {
+	b.setUserState(btn.User.ID, cache.WaitingChannelName)
+	_, err := b.Sender.To(btn.User.AsInputPeer()).Reply(btn.Update.MsgID).Text(btn.Ctx, "Введите в чат ссылку/айди имя чата/группы.")
+	return err
+}
+
+func (b *Bot) callbackMyChannels(btn buttonContext) error {
+
 	return nil
 }
 
-func (b *Bot) callbackMyChannels(data queryContext) error {
-
+func (b *Bot) callbackAddNewKeyWord(btn buttonContext) error {
 	return nil
 }
 
-func (b *Bot) callbackAddNewKeyWord(data queryContext) error {
+func (b *Bot) callbackRemoveKeyWord(btn buttonContext) error {
 	return nil
 }
 
-func (b *Bot) callbackRemoveKeyWord(data queryContext) error {
+func (b *Bot) callbackNextChannels(btn buttonContext) error {
 	return nil
 }
 
-func (b *Bot) callbackNextChannels(data queryContext) error {
+func (b *Bot) callbackPrevChannels(btn buttonContext) error {
 	return nil
 }
 
-func (b *Bot) callbackPrevChannels(data queryContext) error {
+func (b *Bot) callbackNextKeyWords(btn buttonContext) error {
 	return nil
 }
 
-func (b *Bot) callbackNextKeyWords(data queryContext) error {
+func (b *Bot) callbackPrevKeyWords(btn buttonContext) error {
 	return nil
 }
 
-func (b *Bot) callbackPrevKeyWords(data queryContext) error {
+func (b *Bot) callbackBack(btn buttonContext) error {
 	return nil
 }
 
-func (b *Bot) callbackBack(data queryContext) error {
-	return nil
-}
-
-func (b *Bot) callbackMainPage(data queryContext) error {
+func (b *Bot) callbackMainPage(btn buttonContext) error {
 	return nil
 }
 
 func (b *Bot) registerQueryCallbacks() {
-	b.queryCallbacks[AddNewChannel] = b.callbackAddNewChannel
-	b.queryCallbacks[MyChannels] = b.callbackMyChannels
-	b.queryCallbacks[AddNewKeyWord] = b.callbackAddNewKeyWord
-	b.queryCallbacks[RemoveKeyWord] = b.callbackRemoveKeyWord
-	b.queryCallbacks[NextChannels] = b.callbackNextChannels
-	b.queryCallbacks[PrevChannels] = b.callbackNextKeyWords
-	b.queryCallbacks[NextKeyWords] = b.callbackPrevKeyWords
-	b.queryCallbacks[Back] = b.callbackBack
-	b.queryCallbacks[MainPage] = b.callbackMainPage
+	b.btnCallbacks[AddNewChannel] = b.callbackAddNewChannel
+	b.btnCallbacks[MyChannels] = b.callbackMyChannels
+	b.btnCallbacks[AddNewKeyWord] = b.callbackAddNewKeyWord
+	b.btnCallbacks[RemoveKeyWord] = b.callbackRemoveKeyWord
+	b.btnCallbacks[NextChannels] = b.callbackNextChannels
+	b.btnCallbacks[PrevChannels] = b.callbackNextKeyWords
+	b.btnCallbacks[NextKeyWords] = b.callbackPrevKeyWords
+	b.btnCallbacks[Back] = b.callbackBack
+	b.btnCallbacks[MainPage] = b.callbackMainPage
 }
