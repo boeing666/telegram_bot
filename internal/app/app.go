@@ -7,8 +7,8 @@ import (
 )
 
 type Container struct {
-	config   *config.ConfigStructure
-	database *sql.DB
+	Config   *config.ConfigStructure
+	Database *sql.DB
 }
 
 var (
@@ -17,8 +17,8 @@ var (
 )
 
 func (c *Container) Init(config *config.ConfigStructure, database *sql.DB) {
-	container.config = config
-	container.database = database
+	container.Config = config
+	container.Database = database
 }
 
 func GetContainer() *Container {
@@ -26,4 +26,8 @@ func GetContainer() *Container {
 		container = &Container{}
 	})
 	return container
+}
+
+func GetDatabase() *sql.DB {
+	return GetContainer().Database
 }

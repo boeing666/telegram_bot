@@ -3,7 +3,7 @@ package bot
 import "tg_reader_bot/internal/cache"
 
 func (b *Bot) callbackAddNewChannel(btn buttonContext) error {
-	b.setUserState(btn.User.ID, cache.WaitingChannelName)
+	btn.UserCache.State = cache.WaitingChannelName
 	_, err := b.Sender.To(btn.User.AsInputPeer()).Reply(btn.Update.MsgID).Text(btn.Ctx, "Введите в чат ссылку/айди имя чата/группы.")
 	return err
 }

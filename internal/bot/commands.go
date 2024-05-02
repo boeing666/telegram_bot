@@ -6,7 +6,7 @@ import (
 	"github.com/gotd/td/telegram/message/markup"
 )
 
-func (b *Bot) startCommand(msg events.Message) error {
+func (b *Bot) startCommand(msg events.MsgContext) error {
 	welcomeText := "Привет, я бот для отслеживания сообщений в чатах и каналах.\n" +
 		"Ты можешь добавить необходимый канал, и настроить ключевые слова для него.\n" +
 		"Чтобы отслеживать приватные чаты или каналы, добавь меня в них.\n"

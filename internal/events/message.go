@@ -2,12 +2,13 @@ package events
 
 import (
 	"context"
+	"tg_reader_bot/internal/cache"
 
 	"github.com/gotd/td/telegram/message"
 	"github.com/gotd/td/tg"
 )
 
-type Message struct {
+type MsgContext struct {
 	Ctx         context.Context
 	Entities    tg.Entities
 	Update      message.AnswerableMessageUpdate
@@ -15,8 +16,9 @@ type Message struct {
 	PeerUser    *tg.User
 	PeerChat    *tg.Chat
 	PeerChannel *tg.Channel
+	UserCache   *cache.UserCache
 }
 
-func (m *Message) GetMessageText() string {
+func (m *MsgContext) GetMessageText() string {
 	return m.Message.Message
 }

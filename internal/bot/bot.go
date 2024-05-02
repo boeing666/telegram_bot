@@ -49,7 +49,7 @@ type buttonData struct {
 
 type commandInfo struct {
 	Description string
-	callback    func(events.Message) error
+	callback    func(events.MsgContext) error
 }
 
 type Bot struct {
@@ -76,6 +76,6 @@ func Init(client *tg.Client) *Bot {
 	return bot
 }
 
-func (b *Bot) Answer(msg events.Message) *message.RequestBuilder {
+func (b *Bot) Answer(msg events.MsgContext) *message.RequestBuilder {
 	return b.Sender.Answer(msg.Entities, msg.Update)
 }
