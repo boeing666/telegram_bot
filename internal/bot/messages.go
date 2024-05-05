@@ -1,48 +1,51 @@
 package bot
 
 import (
-	"fmt"
-	"tg_reader_bot/internal/serializer"
+	protos "tg_reader_bot/internal/protobufs"
+	"time"
 
 	"github.com/gotd/td/telegram/message/markup"
 	"github.com/gotd/td/tg"
+	"google.golang.org/protobuf/proto"
 )
 
-const (
-	AddNewChannel = iota
-	MyChannels
-	AddNewKeyWord
-	RemoveKeyWord
-	NextChannels
-	PrevChannels
-	NextKeyWords
-	PrevKeyWords
-	ChannelInfo
-	Back
-	MainPage
-)
-
-type buttonChannelInfo struct {
-	Name string
+func buildInitalMenu() tg.ReplyMarkupClass {
+	return markup.InlineRow(
+		CreateButton(
+			"Добавить канал",
+			uint32(protos.MessageID_AddNewChannel),
+			nil,
+		),
+		CreateButton(
+			"Мои каналы",
+			uint32(protos.MessageID_MyChannels),
+			nil,
+		),
+	)
 }
 
-type buttonMenuBack struct {
-	BackMenu int
-}
-
-type buttonRemoveKeyWord struct {
-	ID int32
-}
-
-func CreateButton(name string, msgID uint32, data any) *tg.KeyboardButtonCallback {
-	bytes, err := serializer.EncodeMessage(msgID, data)
-	if err != nil {
-		fmt.Println("CreateInlineButton error %v", err)
-		return nil
+func CreateButton(name string, msgID uint32, data proto.Message) *tg.KeyboardButtonCallback {
+	msg := []byte{}
+	if data != nil {
+		msg, _ = proto.Marshal(data)
 	}
 
+	header := protos.MessageHeader{Time: uint64(time.Now().Unix()), Msgid: msgID, Msg: msg}
+	result, _ := proto.Marshal(&header)
 	return markup.Callback(
 		name,
-		bytes,
+		result,
 	)
+}
+
+func CreateBackButton(backMenuID uint32) tg.KeyboardButtonRow {
+	return tg.KeyboardButtonRow{
+		Buttons: []tg.KeyboardButtonClass{
+			CreateButton(
+				"Назад",
+				uint32(protos.MessageID_Back),
+				&protos.ButtonMenuBack{Newmenu: backMenuID},
+			),
+		},
+	}
 }

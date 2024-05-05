@@ -7,7 +7,7 @@ import (
 )
 
 func (b *Bot) enterChannelName(msg events.MsgContext) (bool, error) {
-	msg.UserCache.State = cache.StateNone
+	msg.UserCache.SetState(cache.StateNone)
 
 	channel, err := b.getChannelByName(msg.Ctx, msg.GetMessageText())
 	if err != nil {

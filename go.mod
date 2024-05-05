@@ -5,15 +5,9 @@ go 1.21.6
 require (
 	github.com/go-sql-driver/mysql v1.7.1
 	github.com/gotd/td v0.98.0
-	github.com/k0kubun/pp/v3 v3.2.0
+	github.com/muesli/cache2go v0.0.0-20221011235721-518229cd8021
 	go.uber.org/zap v1.27.0
-)
-
-require (
-	github.com/mattn/go-colorable v0.1.13 // indirect
-	github.com/mattn/go-isatty v0.0.16 // indirect
-	github.com/muesli/cache2go v0.0.0-20221011235721-518229cd8021 // indirect
-	golang.org/x/text v0.14.0 // indirect
+	google.golang.org/protobuf v1.34.0
 )
 
 require (

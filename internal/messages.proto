@@ -1,0 +1,38 @@
+syntax = "proto3";
+
+package protobufs;
+
+option go_package = "./protobufs";
+
+enum MessageID {
+	AddNewChannel = 0;
+	MyChannels = 1;
+	AddNewKeyWord = 2;
+	RemoveKeyWord = 3;
+	NextChannels = 4;
+	PrevChannels = 5;
+	NextKeyWords = 6;
+	PrevKeyWords = 7;
+	ChannelInfo = 8;
+	Back = 9;
+	MainPage = 10;
+}
+
+message MessageHeader {
+  uint64 time = 1;
+  uint32 msgid = 2;
+  bytes msg = 3;
+}
+
+message buttonChanneInfo {
+  int64 id = 1;
+}
+
+message buttonMenuBack {
+  uint32 newmenu = 1;
+}
+
+message buttonRemoveKeyWord {
+  int32 keyword_id = 1;
+  int64 group_id = 2;
+}

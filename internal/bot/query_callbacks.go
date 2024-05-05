@@ -3,9 +3,10 @@ package bot
 import (
 	"fmt"
 	"tg_reader_bot/internal/cache"
-	"tg_reader_bot/internal/serializer"
+	protos "tg_reader_bot/internal/protobufs"
 
 	"github.com/gotd/td/tg"
+	"google.golang.org/protobuf/proto"
 )
 
 func (b *Bot) callbackAddNewChannel(btn buttonContext) error {
@@ -25,24 +26,15 @@ func (b *Bot) callbackMyChannels(btn buttonContext) error {
 		row := tg.KeyboardButtonRow{
 			Buttons: []tg.KeyboardButtonClass{
 				CreateButton(
-					fmt.Sprintf("%s (%d)", channel.Name, len(channel.KeyWords)),
-					ChannelInfo,
-					buttonChannelInfo{Name: channel.Name},
+					fmt.Sprintf("%s (%d)", channel.Title, len(channel.KeyWords)),
+					uint32(protos.MessageID_ChannelInfo),
+					&protos.ButtonChanneInfo{Id: channel.TelegramID},
 				),
 			},
 		}
 		rows = append(rows, row)
 	}
-
-	rows = append(rows, tg.KeyboardButtonRow{
-		Buttons: []tg.KeyboardButtonClass{
-			CreateButton(
-				"Назад",
-				Back,
-				buttonMenuBack{BackMenu: 1},
-			),
-		},
-	})
+	rows = append(rows, CreateBackButton(uint32(protos.MessageID_MainPage)))
 
 	_, err := b.Client.MessagesEditMessage(btn.Ctx, &tg.MessagesEditMessageRequest{
 		Peer:        &tg.InputPeerUser{UserID: btn.Update.UserID},
@@ -55,15 +47,10 @@ func (b *Bot) callbackMyChannels(btn buttonContext) error {
 }
 
 func (b *Bot) callbackChannelInfo(btn buttonContext) error {
-	message := buttonChannelInfo{}
-	err := serializer.DecodeMessage(btn.Data, &message)
+	message := protos.ButtonChanneInfo{}
+	proto.Unmarshal(btn.Data, &message)
 
-	if err != nil {
-		b.Answer(btn.User).Textf(btn.Ctx, "Ошибка при чтении ключевых слов.")
-		return err
-	}
-
-	channel, ok := btn.UserCache.Channels[message.Name]
+	channel, ok := btn.UserCache.Channels[message.Id]
 	if !ok {
 		b.Answer(btn.User).Textf(btn.Ctx, "Ошибка при чтении ключевых слов.")
 		return nil
@@ -74,8 +61,8 @@ func (b *Bot) callbackChannelInfo(btn buttonContext) error {
 			Buttons: []tg.KeyboardButtonClass{
 				CreateButton(
 					"Добавить новое",
-					AddNewKeyWord,
-					buttonChannelInfo{Name: channel.Name},
+					uint32(protos.MessageID_AddNewKeyWord),
+					&protos.ButtonChanneInfo{Id: channel.TelegramID},
 				),
 			},
 		},
@@ -86,21 +73,39 @@ func (b *Bot) callbackChannelInfo(btn buttonContext) error {
 			Buttons: []tg.KeyboardButtonClass{
 				CreateButton(
 					keyword,
-					RemoveKeyWord,
-					buttonRemoveKeyWord{ID: id},
+					uint32(protos.MessageID_RemoveKeyWord),
+					&protos.ButtonRemoveKeyWord{KeywordId: id, GroupId: channel.TelegramID},
 				),
 			},
 		}
 		rows = append(rows, row)
 	}
+	rows = append(rows, CreateBackButton(uint32(protos.MessageID_MyChannels)))
 
-	_, err = b.Client.MessagesEditMessage(btn.Ctx, &tg.MessagesEditMessageRequest{
+	_, err := b.Client.MessagesEditMessage(btn.Ctx, &tg.MessagesEditMessageRequest{
 		Peer:        &tg.InputPeerUser{UserID: btn.Update.UserID},
 		ID:          btn.Update.MsgID,
 		ReplyMarkup: &tg.ReplyInlineMarkup{Rows: rows},
 		Message:     fmt.Sprintf("Ключевые слова для канала %s, нажмите на слово, чтобы удалить.", channel.Name),
 	})
 
+	return err
+}
+
+func (b *Bot) callbackBack(btn buttonContext) error {
+	message := protos.ButtonMenuBack{}
+	proto.Unmarshal(btn.Data, &message)
+
+	return b.btnCallbacks[message.Newmenu](btn)
+}
+
+func (b *Bot) callbackMainPage(btn buttonContext) error {
+	_, err := b.Client.MessagesEditMessage(btn.Ctx, &tg.MessagesEditMessageRequest{
+		Peer:        &tg.InputPeerUser{UserID: btn.Update.UserID},
+		ID:          btn.Update.MsgID,
+		ReplyMarkup: buildInitalMenu(),
+		Message:     fmt.Sprintf("Добро пожаловать %s %s", btn.User.FirstName, btn.User.LastName),
+	})
 	return err
 }
 
@@ -128,23 +133,15 @@ func (b *Bot) callbackPrevKeyWords(btn buttonContext) error {
 	return nil
 }
 
-func (b *Bot) callbackBack(btn buttonContext) error {
-	return nil
-}
-
-func (b *Bot) callbackMainPage(btn buttonContext) error {
-	return nil
-}
-
 func (b *Bot) registerQueryCallbacks() {
-	b.btnCallbacks[AddNewChannel] = b.callbackAddNewChannel
-	b.btnCallbacks[MyChannels] = b.callbackMyChannels
-	b.btnCallbacks[AddNewKeyWord] = b.callbackAddNewKeyWord
-	b.btnCallbacks[RemoveKeyWord] = b.callbackRemoveKeyWord
-	b.btnCallbacks[NextChannels] = b.callbackNextChannels
-	b.btnCallbacks[PrevChannels] = b.callbackNextKeyWords
-	b.btnCallbacks[NextKeyWords] = b.callbackPrevKeyWords
-	b.btnCallbacks[Back] = b.callbackBack
-	b.btnCallbacks[MainPage] = b.callbackMainPage
-	b.btnCallbacks[ChannelInfo] = b.callbackChannelInfo
+	b.btnCallbacks[uint32(protos.MessageID_AddNewChannel)] = b.callbackAddNewChannel
+	b.btnCallbacks[uint32(protos.MessageID_MyChannels)] = b.callbackMyChannels
+	b.btnCallbacks[uint32(protos.MessageID_AddNewKeyWord)] = b.callbackAddNewKeyWord
+	b.btnCallbacks[uint32(protos.MessageID_RemoveKeyWord)] = b.callbackRemoveKeyWord
+	b.btnCallbacks[uint32(protos.MessageID_NextChannels)] = b.callbackNextChannels
+	b.btnCallbacks[uint32(protos.MessageID_PrevChannels)] = b.callbackNextKeyWords
+	b.btnCallbacks[uint32(protos.MessageID_NextKeyWords)] = b.callbackPrevKeyWords
+	b.btnCallbacks[uint32(protos.MessageID_Back)] = b.callbackBack
+	b.btnCallbacks[uint32(protos.MessageID_MainPage)] = b.callbackMainPage
+	b.btnCallbacks[uint32(protos.MessageID_ChannelInfo)] = b.callbackChannelInfo
 }

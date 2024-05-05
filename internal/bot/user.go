@@ -28,7 +28,7 @@ func (b *Bot) getOrCreateUser(ctx context.Context, peerUser *tg.User, create boo
 
 func (b *Bot) fillUserGroupsInfo(ctx context.Context, userCache *cache.UserCache) {
 	for name, channel := range userCache.Channels {
-		peer, err := b.getChannelByName(ctx, name)
+		peer, err := b.getChannelByName(ctx, channel.Name)
 		if err == nil {
 			channel.Name = peer.Title
 			channel.TelegramID = peer.ID

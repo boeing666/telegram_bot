@@ -2,10 +2,12 @@ package bot
 
 import (
 	"context"
+	"fmt"
 	"tg_reader_bot/internal/events"
-	"tg_reader_bot/internal/serializer"
+	protos "tg_reader_bot/internal/protobufs"
 
 	"github.com/gotd/td/tg"
+	"google.golang.org/protobuf/proto"
 )
 
 /* listen messages in a channels */
@@ -55,8 +57,17 @@ func (b *Bot) onNewMessage(ctx context.Context, entities tg.Entities, update *tg
 
 /* called when someone pressed the inline-button */
 func (b *Bot) botCallbackQuery(ctx context.Context, entities tg.Entities, update *tg.UpdateBotCallbackQuery) error {
-	message := serializer.MessageHeader{}
-	serializer.DecodeMessage(update.Data, &message)
+	message := protos.MessageHeader{}
+	err := proto.Unmarshal(update.Data, &message)
+	if err != nil {
+		fmt.Println("Unmarshal MessageHeader", err)
+		_, err := b.Client.MessagesEditMessage(ctx, &tg.MessagesEditMessageRequest{
+			Peer:    &tg.InputPeerUser{UserID: update.UserID},
+			ID:      update.MsgID,
+			Message: "Ошибка обработки сообщения, начните заново /start.",
+		})
+		return err
+	}
 
 	if message.Time < b.startTime {
 		_, err := b.Client.MessagesEditMessage(ctx, &tg.MessagesEditMessageRequest{
@@ -80,8 +91,8 @@ func (b *Bot) botCallbackQuery(ctx context.Context, entities tg.Entities, update
 
 	userCache.SetActiveMenuID(update.MsgID)
 
-	msg := buttonContext{Ctx: ctx, Entities: entities, Update: update, User: user, UserCache: userCache, Data: message.Data}
-	if callback, ok := b.btnCallbacks[message.ID]; ok {
+	msg := buttonContext{Ctx: ctx, Entities: entities, Update: update, User: user, UserCache: userCache, Data: message.Msg}
+	if callback, ok := b.btnCallbacks[message.Msgid]; ok {
 		return callback(msg)
 	}
 
