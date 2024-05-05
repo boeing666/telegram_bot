@@ -1,19 +1,39 @@
 package bot
 
 import (
+	"context"
+	"fmt"
 	"tg_reader_bot/internal/cache"
 	"time"
+
+	"github.com/gotd/td/tg"
 )
 
-func (b *Bot) getOrCreateUser(userID int64, create bool) *cache.UserCache {
-	res, err := b.cache.Value(userID)
+func (b *Bot) getOrCreateUser(ctx context.Context, peerUser *tg.User, create bool) (*cache.UserCache, error) {
+	res, err := b.cache.Value(peerUser.ID)
 	if err == nil {
-		return res.Data().(*cache.UserCache)
+		return res.Data().(*cache.UserCache), nil
 	}
+
 	if !create {
-		return nil
+		return nil, nil
 	}
-	user := cache.CreateUser(userID)
-	b.cache.Add(userID, 10*time.Minute, user)
-	return user
+
+	user, err := cache.CreateUser(peerUser)
+	b.fillUserGroupsInfo(ctx, user)
+	b.cache.Add(peerUser.ID, 10*time.Minute, user)
+
+	return user, err
+}
+
+func (b *Bot) fillUserGroupsInfo(ctx context.Context, userCache *cache.UserCache) {
+	for name, channel := range userCache.Channels {
+		peer, err := b.getChannelByName(ctx, name)
+		if err == nil {
+			channel.Name = peer.Title
+			channel.TelegramID = peer.ID
+		} else {
+			fmt.Printf("Can't resolve %s | %v\n", name, err)
+		}
+	}
 }

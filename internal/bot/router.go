@@ -2,8 +2,8 @@ package bot
 
 import (
 	"context"
-	"encoding/json"
 	"tg_reader_bot/internal/events"
+	"tg_reader_bot/internal/serializer"
 
 	"github.com/gotd/td/tg"
 )
@@ -38,7 +38,7 @@ func (b *Bot) onNewMessage(ctx context.Context, entities tg.Entities, update *tg
 	case *tg.PeerUser: // if msg received in pm
 		peerUser := m.PeerID.(*tg.PeerUser)
 		msg.PeerUser, ok = entities.Users[peerUser.UserID]
-		msg.UserCache = b.getOrCreateUser(peerUser.UserID, false)
+		msg.UserCache, _ = b.getOrCreateUser(ctx, msg.PeerUser, false)
 		if ok {
 			return b.handlePrivateMessage(msg)
 		}
@@ -55,12 +55,10 @@ func (b *Bot) onNewMessage(ctx context.Context, entities tg.Entities, update *tg
 
 /* called when someone pressed the inline-button */
 func (b *Bot) botCallbackQuery(ctx context.Context, entities tg.Entities, update *tg.UpdateBotCallbackQuery) error {
-	var queryData QueryHeader
-	if err := json.Unmarshal(update.Data, &queryData); err != nil {
-		return err
-	}
+	message := serializer.MessageHeader{}
+	serializer.DecodeMessage(update.Data, &message)
 
-	if queryData.Time < b.startTime {
+	if message.Time < b.startTime {
 		_, err := b.Client.MessagesEditMessage(ctx, &tg.MessagesEditMessageRequest{
 			Peer:    &tg.InputPeerUser{UserID: update.UserID},
 			ID:      update.MsgID,
@@ -74,9 +72,16 @@ func (b *Bot) botCallbackQuery(ctx context.Context, entities tg.Entities, update
 		return nil
 	}
 
-	userCache := b.getOrCreateUser(update.UserID, true)
-	msg := buttonContext{Ctx: ctx, Entities: entities, Update: update, User: user, UserCache: userCache, Data: queryData.Data}
-	if callback, ok := b.btnCallbacks[queryData.Action]; ok {
+	userCache, err := b.getOrCreateUser(ctx, user, true)
+	if err != nil {
+		b.Answer(user).Textf(ctx, "Ваши данные не загружены, попробуйте позже.")
+		return nil
+	}
+
+	userCache.SetActiveMenuID(update.MsgID)
+
+	msg := buttonContext{Ctx: ctx, Entities: entities, Update: update, User: user, UserCache: userCache, Data: message.Data}
+	if callback, ok := b.btnCallbacks[message.ID]; ok {
 		return callback(msg)
 	}
 

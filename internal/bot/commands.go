@@ -12,17 +12,19 @@ func (b *Bot) startCommand(msg events.MsgContext) error {
 		"Чтобы отслеживать приватные чаты или каналы, добавь меня в них.\n"
 
 	buttons := markup.InlineRow(
-		markup.Callback(
+		CreateButton(
 			"Добавить канал",
-			b.buildQuery(AddNewChannel, ""),
+			AddNewChannel,
+			nil,
 		),
-		markup.Callback(
+		CreateButton(
 			"Мои каналы",
-			b.buildQuery(MyChannels, ""),
+			MyChannels,
+			nil,
 		),
 	)
 
-	_, err := b.Answer(msg).Markup(buttons).Text(msg.Ctx, welcomeText)
+	_, err := b.Answer(msg.PeerUser).Markup(buttons).Text(msg.Ctx, welcomeText)
 	return err
 }
 

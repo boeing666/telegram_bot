@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"fmt"
 	"os"
 	"os/signal"
 	"tg_reader_bot/internal/app"
@@ -22,6 +23,7 @@ func main() {
 		panic(err)
 	}
 
+	fmt.Println(config.GetDatabaseQuery())
 	db, err := database.Init(config.GetDatabaseQuery())
 	if err != nil {
 		panic(err)

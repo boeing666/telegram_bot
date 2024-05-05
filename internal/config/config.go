@@ -37,10 +37,9 @@ func Init() (*ConfigStructure, error) {
 
 func (config *ConfigStructure) GetDatabaseQuery() string {
 	query := url.URL{
-		Scheme: "mysql",
-		User:   url.UserPassword(config.DbSettings.Username, config.DbSettings.Password),
-		Host:   fmt.Sprintf("tcp(%s)", config.DbSettings.Host),
-		Path:   config.DbSettings.Database,
+		User: url.UserPassword(config.DbSettings.Username, config.DbSettings.Password),
+		Host: fmt.Sprintf("tcp(%s)", config.DbSettings.Host),
+		Path: config.DbSettings.Database,
 	}
-	return query.String()
+	return query.String()[2:]
 }

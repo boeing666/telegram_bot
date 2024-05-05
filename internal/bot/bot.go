@@ -13,38 +13,13 @@ import (
 
 type btnCallback func(buttonContext) error
 
-const (
-	AddNewChannel = iota
-	MyChannels
-	AddNewKeyWord
-	RemoveKeyWord
-	NextChannels
-	PrevChannels
-	NextKeyWords
-	PrevKeyWords
-	Back
-	MainPage
-)
-
-type QueryHeader struct {
-	Time   uint64
-	Action uint32
-	Data   string
-}
-
 type buttonContext struct {
 	Ctx       context.Context
 	Entities  tg.Entities
 	Update    *tg.UpdateBotCallbackQuery
 	User      *tg.User
 	UserCache *cache.UserCache
-	Data      string
-}
-
-type buttonData struct {
-	CreatedTime int64
-	ActionType  uint32
-	Data        []byte
+	Data      []byte
 }
 
 type commandInfo struct {
@@ -76,6 +51,6 @@ func Init(client *tg.Client) *Bot {
 	return bot
 }
 
-func (b *Bot) Answer(msg events.MsgContext) *message.RequestBuilder {
-	return b.Sender.Answer(msg.Entities, msg.Update)
+func (b *Bot) Answer(user *tg.User) *message.RequestBuilder {
+	return b.Sender.To(user.AsInputPeer())
 }

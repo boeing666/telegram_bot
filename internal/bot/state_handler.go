@@ -1,48 +1,34 @@
 package bot
 
 import (
+	"fmt"
 	"tg_reader_bot/internal/cache"
 	"tg_reader_bot/internal/events"
-
-	"github.com/gotd/td/telegram/message/peer"
-	"github.com/gotd/td/tg"
 )
 
 func (b *Bot) enterChannelName(msg events.MsgContext) (bool, error) {
 	msg.UserCache.State = cache.StateNone
 
-	otherPeer, err := b.Sender.Resolve(msg.GetMessageText()).AsInputPeer(msg.Ctx)
+	channel, err := b.getChannelByName(msg.Ctx, msg.GetMessageText())
 	if err != nil {
-		b.Answer(msg).Text(msg.Ctx, "Введены некорректные данные.")
+		fmt.Println("GetChannelByName", err)
+		b.Answer(msg.PeerUser).Text(msg.Ctx, "Ошибка при выполнении. Попробуйте позже.")
 		return false, nil
 	}
 
-	switch otherPeer.(type) {
-	case *tg.InputPeerChat:
-		// chatPeer := peer.(*tg.InputPeerChat)
-	case *tg.InputPeerChannel:
-		inputChannel, ok := peer.ToInputChannel(otherPeer)
-		if !ok {
-			b.Answer(msg).Text(msg.Ctx, "Внутрення ошибка 101. Попробуйте позже.")
-			return false, nil
-		}
-		channels, err := b.Client.ChannelsGetChannels(msg.Ctx, []tg.InputChannelClass{inputChannel})
-		if err != nil {
-			b.Answer(msg).Text(msg.Ctx, "Внутрення ошибка 102. Попробуйте позже.")
-			return false, nil
-		}
-		channel := channels.GetChats()[0].(*tg.Channel)
-		if msg.UserCache.HasChannelByID(channel.ID) {
-			b.Answer(msg).Textf(msg.Ctx, "Канал [%s](%s) уже добавлен.", channel.Title, msg.GetMessageText())
-			return false, nil
-		}
-
-		b.Answer(msg).Textf(msg.Ctx, "Канал [%s](%s) успешно добавлен.", channel.Title, msg.GetMessageText())
-	default:
-		b.Answer(msg).Textf(msg.Ctx, "[%s] не является каналом или чатом.", msg.GetMessageText())
+	if msg.UserCache.HasChannelByID(channel.ID) {
+		b.Answer(msg.PeerUser).Textf(msg.Ctx, "Канал [%s](%s) уже был добавлен.", channel.Title, msg.GetMessageText())
 		return false, nil
 	}
 
+	_, err = msg.UserCache.AddGroup(channel)
+	if err != nil {
+		fmt.Println("AddGroup", err)
+		b.Answer(msg.PeerUser).Text(msg.Ctx, "Ошибка при выполнении. Попробуйте позже.")
+		return false, nil
+	}
+
+	b.Answer(msg.PeerUser).Textf(msg.Ctx, "Канал [%s](%s) успешно добавлен.", channel.Title, msg.GetMessageText())
 	return true, nil
 }
 
