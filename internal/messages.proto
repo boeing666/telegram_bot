@@ -30,6 +30,7 @@ message buttonChanneInfo {
 
 message buttonMenuBack {
   uint32 newmenu = 1;
+  optional bytes msg = 3;
 }
 
 message buttonRemoveKeyWord {

@@ -24,12 +24,11 @@ type ChannelCache struct {
 }
 
 type UserCache struct {
-	TelegramID   int64
-	State        uint32
-	ActiveMenuID int
-	Channels     map[int64]*ChannelCache
-	DataLoaded   bool
-	Mutex        sync.RWMutex
+	TelegramID int64
+	State      uint32
+	Channels   map[int64]*ChannelCache
+	DataLoaded bool
+	Mutex      sync.RWMutex
 }
 
 func CreateUser(user *tg.User) (*UserCache, error) {
@@ -97,11 +96,6 @@ type groupData struct {
 
 func (u *UserCache) loadUserData(user *tg.User) error {
 	db := app.GetDatabase()
-
-	_, err := db.Exec("INSERT INTO users (id, userid, username) VALUES (NULL, ?, ?) ON DUPLICATE KEY UPDATE username = ?", u.TelegramID, user.Username, user.Username)
-	if err != nil {
-		return fmt.Errorf("error creating/updating user in database: %v", err)
-	}
 
 	rows, err := db.Query("SELECT g.id, g.telegram_id, g.name, g.title, k.id, k.keyword FROM `groups` g LEFT JOIN `keywords` k ON g.id = k.groupid WHERE g.userid = ?", u.TelegramID)
 	if err != nil {
@@ -190,16 +184,4 @@ func (uc *UserCache) GetState() uint32 {
 	uc.Mutex.RLock()
 	defer uc.Mutex.RUnlock()
 	return uc.State
-}
-
-func (uc *UserCache) SetActiveMenuID(menuID int) {
-	uc.Mutex.Lock()
-	defer uc.Mutex.Unlock()
-	uc.ActiveMenuID = menuID
-}
-
-func (uc *UserCache) GetActiveMenuID() int {
-	uc.Mutex.RLock()
-	defer uc.Mutex.RUnlock()
-	return uc.ActiveMenuID
 }

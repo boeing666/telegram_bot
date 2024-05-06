@@ -38,13 +38,19 @@ func CreateButton(name string, msgID uint32, data proto.Message) *tg.KeyboardBut
 	)
 }
 
-func CreateBackButton(backMenuID uint32) tg.KeyboardButtonRow {
+func CreateBackButton(name string, backMenuID uint32, msg proto.Message) tg.KeyboardButtonRow {
+	button := &protos.ButtonMenuBack{Newmenu: backMenuID}
+	if msg != nil {
+		bytes, _ := proto.Marshal(msg)
+		button.Msg = bytes
+	}
+
 	return tg.KeyboardButtonRow{
 		Buttons: []tg.KeyboardButtonClass{
 			CreateButton(
-				"Назад",
+				name,
 				uint32(protos.MessageID_Back),
-				&protos.ButtonMenuBack{Newmenu: backMenuID},
+				button,
 			),
 		},
 	}

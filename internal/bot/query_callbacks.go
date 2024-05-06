@@ -10,8 +10,14 @@ import (
 )
 
 func (b *Bot) callbackAddNewChannel(btn buttonContext) error {
+	rows := []tg.KeyboardButtonRow{CreateBackButton("Отмена", uint32(protos.MessageID_MainPage), nil)}
 	btn.UserCache.SetState(cache.WaitingChannelName)
-	_, err := b.Answer(btn.User).Reply(btn.Update.MsgID).Text(btn.Ctx, "Введите в чат ссылку/айди имя чата/группы.")
+	_, err := b.Client.MessagesEditMessage(btn.Ctx, &tg.MessagesEditMessageRequest{
+		Peer:        &tg.InputPeerUser{UserID: btn.Update.UserID},
+		ID:          btn.Update.MsgID,
+		ReplyMarkup: &tg.ReplyInlineMarkup{Rows: rows},
+		Message:     "Введите в чат ссылку/айди имя чата/группы.",
+	})
 	return err
 }
 
@@ -34,7 +40,7 @@ func (b *Bot) callbackMyChannels(btn buttonContext) error {
 		}
 		rows = append(rows, row)
 	}
-	rows = append(rows, CreateBackButton(uint32(protos.MessageID_MainPage)))
+	rows = append(rows, CreateBackButton("Назад", uint32(protos.MessageID_MainPage), nil))
 
 	_, err := b.Client.MessagesEditMessage(btn.Ctx, &tg.MessagesEditMessageRequest{
 		Peer:        &tg.InputPeerUser{UserID: btn.Update.UserID},
@@ -80,7 +86,8 @@ func (b *Bot) callbackChannelInfo(btn buttonContext) error {
 		}
 		rows = append(rows, row)
 	}
-	rows = append(rows, CreateBackButton(uint32(protos.MessageID_MyChannels)))
+	rows = append(rows, CreateBackButton("Назад", uint32(protos.MessageID_MyChannels), nil))
+	rows = append(rows, CreateBackButton("На главную", uint32(protos.MessageID_MainPage), nil))
 
 	_, err := b.Client.MessagesEditMessage(btn.Ctx, &tg.MessagesEditMessageRequest{
 		Peer:        &tg.InputPeerUser{UserID: btn.Update.UserID},
@@ -96,6 +103,10 @@ func (b *Bot) callbackBack(btn buttonContext) error {
 	message := protos.ButtonMenuBack{}
 	proto.Unmarshal(btn.Data, &message)
 
+	if message.Msg != nil {
+		btn.Data = message.Msg
+	}
+
 	return b.btnCallbacks[message.Newmenu](btn)
 }
 
@@ -110,7 +121,26 @@ func (b *Bot) callbackMainPage(btn buttonContext) error {
 }
 
 func (b *Bot) callbackAddNewKeyWord(btn buttonContext) error {
-	return nil
+	message := protos.ButtonChanneInfo{}
+	proto.Unmarshal(btn.Data, &message)
+
+	channel, ok := btn.UserCache.Channels[message.Id]
+	if !ok {
+		b.Answer(btn.User).Textf(btn.Ctx, "Ошибка при чтении ключевых слов.")
+		return nil
+	}
+
+	btn.UserCache.SetState(cache.WaitingKeyWord)
+
+	rows := []tg.KeyboardButtonRow{CreateBackButton("Отмена", uint32(protos.MessageID_ChannelInfo), &message)}
+	_, err := b.Client.MessagesEditMessage(btn.Ctx, &tg.MessagesEditMessageRequest{
+		Peer:        &tg.InputPeerUser{UserID: btn.Update.UserID},
+		ID:          btn.Update.MsgID,
+		ReplyMarkup: &tg.ReplyInlineMarkup{Rows: rows},
+		Message:     fmt.Sprintf("Канал: [%s]\nВведите ключевое слово или регулярное выражение.", channel.Title),
+	})
+
+	return err
 }
 
 func (b *Bot) callbackRemoveKeyWord(btn buttonContext) error {

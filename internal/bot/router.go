@@ -89,8 +89,6 @@ func (b *Bot) botCallbackQuery(ctx context.Context, entities tg.Entities, update
 		return nil
 	}
 
-	userCache.SetActiveMenuID(update.MsgID)
-
 	msg := buttonContext{Ctx: ctx, Entities: entities, Update: update, User: user, UserCache: userCache, Data: message.Msg}
 	if callback, ok := b.btnCallbacks[message.Msgid]; ok {
 		return callback(msg)

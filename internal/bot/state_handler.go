@@ -32,10 +32,18 @@ func (b *Bot) enterChannelName(msg events.MsgContext) (bool, error) {
 	return true, nil
 }
 
+func (b *Bot) enterKeyWord(msg events.MsgContext) (bool, error) {
+	msg.UserCache.SetState(cache.StateNone)
+
+	return false, nil
+}
+
 func (b *Bot) stateHandler(msg events.MsgContext) (bool, error) {
 	switch msg.UserCache.State {
 	case cache.WaitingChannelName:
 		return b.enterChannelName(msg)
+	case cache.WaitingKeyWord:
+		return b.enterKeyWord(msg)
 	}
 
 	return false, nil
