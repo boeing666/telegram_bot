@@ -26,7 +26,7 @@ func (b *Bot) callbackMyChannels(btn buttonContext) error {
 	if len(btn.UserCache.Channels) == 0 {
 		_, err := b.Client.MessagesSetBotCallbackAnswer(btn.Ctx, &tg.MessagesSetBotCallbackAnswerRequest{
 			QueryID: btn.Update.QueryID,
-			Message: "Список пуст",
+			Message: "Список каналов пуст",
 		})
 		return err
 	}
@@ -94,6 +94,7 @@ func (b *Bot) showChannelInfo(ctx context.Context, channelId int64, User *tg.Use
 	}
 
 	rows = append(rows,
+		CreateSpaceButtonRow(),
 		CreateButtonRow("Удалить канал", protobufs.MessageID_RemoveChannel, &protobufs.ButtonChanneInfo{ChannelId: channel.TelegramID}),
 		CreateBackButton("Назад", protobufs.MessageID_MyChannels, nil),
 		CreateBackButton("На главную", protobufs.MessageID_MainPage, nil),
@@ -227,14 +228,14 @@ func (b *Bot) callbackRemoveChannel(btn buttonContext) error {
 
 func (b *Bot) callbackSpaceButton(btn buttonContext) error {
 	texts := []string{
-		"Куда вы нажали?", "Это не та кнопка!", "Упс, что-то пошло не так!", "Я бы советовал не нажимать сюда.",
+		"Куда вы нажали?", "Больше не нажимайте на кнопку, вы сломаете бота!", "Упс, что-то пошло не так!",
 		"Опять?!", "Вы серьезно?", "Я вас предупреждал!", "О, это становится интересно...",
 		"Теперь это просто забавно!", "Мне нравится ваша настойчивость!", "Вы действительно упорны!", "Продолжайте, не останавливайтесь!",
 		"Нажимайте, как будто от этого зависит жизнь!", "Вы победили, вот ваш приз",
 	}
 
 	/* need some funny image or gif */
-	textIndex := (btn.UserCache.SecretButtonClicks / 5) % len(texts)
+	textIndex := (btn.UserCache.SecretButtonClicks / 3) % len(texts)
 	btn.UserCache.SecretButtonClicks += 1
 
 	_, err := b.Client.MessagesSetBotCallbackAnswer(btn.Ctx, &tg.MessagesSetBotCallbackAnswerRequest{

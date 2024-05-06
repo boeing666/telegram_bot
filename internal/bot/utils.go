@@ -34,6 +34,6 @@ func (b *Bot) getChannelByName(ctx context.Context, name string) (*tg.Channel, e
 
 		return chats[0].(*tg.Channel), nil
 	default:
-		return nil, nil
+		return nil, fmt.Errorf("it isn't channel")
 	}
 }
