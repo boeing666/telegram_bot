@@ -24,11 +24,13 @@ type ChannelCache struct {
 }
 
 type UserCache struct {
-	TelegramID int64
-	State      uint32
-	Channels   map[int64]*ChannelCache
-	DataLoaded bool
-	Mutex      sync.RWMutex
+	TelegramID      int64
+	State           uint32
+	Channels        map[int64]*ChannelCache
+	DataLoaded      bool
+	ActiveMenuID    int
+	ActiveChannelID int64
+	Mutex           sync.RWMutex
 }
 
 func CreateUser(user *tg.User) (*UserCache, error) {

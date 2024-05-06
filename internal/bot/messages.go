@@ -1,7 +1,7 @@
 package bot
 
 import (
-	protos "tg_reader_bot/internal/protobufs"
+	"tg_reader_bot/internal/protobufs"
 	"time"
 
 	"github.com/gotd/td/telegram/message/markup"
@@ -13,24 +13,24 @@ func buildInitalMenu() tg.ReplyMarkupClass {
 	return markup.InlineRow(
 		CreateButton(
 			"Добавить канал",
-			uint32(protos.MessageID_AddNewChannel),
+			protobufs.MessageID_AddNewChannel,
 			nil,
 		),
 		CreateButton(
 			"Мои каналы",
-			uint32(protos.MessageID_MyChannels),
+			protobufs.MessageID_MyChannels,
 			nil,
 		),
 	)
 }
 
-func CreateButton(name string, msgID uint32, data proto.Message) *tg.KeyboardButtonCallback {
-	msg := []byte{}
+func CreateButton(name string, msgID protobufs.MessageID, data proto.Message) *tg.KeyboardButtonCallback {
+	var msg []byte
 	if data != nil {
 		msg, _ = proto.Marshal(data)
 	}
 
-	header := protos.MessageHeader{Time: uint64(time.Now().Unix()), Msgid: msgID, Msg: msg}
+	header := protobufs.MessageHeader{Time: uint64(time.Now().Unix()), Msgid: msgID, Msg: msg}
 	result, _ := proto.Marshal(&header)
 	return markup.Callback(
 		name,
@@ -38,8 +38,8 @@ func CreateButton(name string, msgID uint32, data proto.Message) *tg.KeyboardBut
 	)
 }
 
-func CreateBackButton(name string, backMenuID uint32, msg proto.Message) tg.KeyboardButtonRow {
-	button := &protos.ButtonMenuBack{Newmenu: backMenuID}
+func CreateBackButton(name string, backMenuID protobufs.MessageID, msg proto.Message) tg.KeyboardButtonRow {
+	button := &protobufs.ButtonMenuBack{Newmenu: backMenuID}
 	if msg != nil {
 		bytes, _ := proto.Marshal(msg)
 		button.Msg = bytes
@@ -49,7 +49,7 @@ func CreateBackButton(name string, backMenuID uint32, msg proto.Message) tg.Keyb
 		Buttons: []tg.KeyboardButtonClass{
 			CreateButton(
 				name,
-				uint32(protos.MessageID_Back),
+				protobufs.MessageID_Back,
 				button,
 			),
 		},

@@ -20,7 +20,7 @@ enum MessageID {
 
 message MessageHeader {
   uint64 time = 1;
-  uint32 msgid = 2;
+  MessageID msgid = 2;
   bytes msg = 3;
 }
 
@@ -29,7 +29,7 @@ message buttonChanneInfo {
 }
 
 message buttonMenuBack {
-  uint32 newmenu = 1;
+  MessageID newmenu = 1;
   optional bytes msg = 3;
 }
 

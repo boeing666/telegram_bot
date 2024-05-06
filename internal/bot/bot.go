@@ -4,6 +4,7 @@ import (
 	"context"
 	"tg_reader_bot/internal/cache"
 	"tg_reader_bot/internal/events"
+	"tg_reader_bot/internal/protobufs"
 	"time"
 
 	"github.com/gotd/td/telegram/message"
@@ -32,7 +33,7 @@ type Bot struct {
 	Sender        *message.Sender
 	startTime     uint64
 	cmdsCallbacks map[string]commandInfo
-	btnCallbacks  map[uint32]btnCallback
+	btnCallbacks  map[protobufs.MessageID]btnCallback
 	cache         cache2go.CacheTable
 }
 
@@ -42,7 +43,7 @@ func Init(client *tg.Client) *Bot {
 		Sender:        message.NewSender(client),
 		startTime:     uint64(time.Now().Unix()),
 		cmdsCallbacks: make(map[string]commandInfo),
-		btnCallbacks:  make(map[uint32]btnCallback),
+		btnCallbacks:  make(map[protobufs.MessageID]btnCallback),
 		cache:         *cache2go.Cache("users"),
 	}
 

@@ -4,7 +4,7 @@ import (
 	"context"
 	"fmt"
 	"tg_reader_bot/internal/events"
-	protos "tg_reader_bot/internal/protobufs"
+	"tg_reader_bot/internal/protobufs"
 
 	"github.com/gotd/td/tg"
 	"google.golang.org/protobuf/proto"
@@ -57,7 +57,8 @@ func (b *Bot) onNewMessage(ctx context.Context, entities tg.Entities, update *tg
 
 /* called when someone pressed the inline-button */
 func (b *Bot) botCallbackQuery(ctx context.Context, entities tg.Entities, update *tg.UpdateBotCallbackQuery) error {
-	message := protos.MessageHeader{}
+	var message protobufs.MessageHeader
+
 	err := proto.Unmarshal(update.Data, &message)
 	if err != nil {
 		fmt.Println("Unmarshal MessageHeader", err)
@@ -88,6 +89,8 @@ func (b *Bot) botCallbackQuery(ctx context.Context, entities tg.Entities, update
 		b.Answer(user).Textf(ctx, "Ваши данные не загружены, попробуйте позже.")
 		return nil
 	}
+
+	userCache.ActiveMenuID = update.MsgID
 
 	msg := buttonContext{Ctx: ctx, Entities: entities, Update: update, User: user, UserCache: userCache, Data: message.Msg}
 	if callback, ok := b.btnCallbacks[message.Msgid]; ok {
