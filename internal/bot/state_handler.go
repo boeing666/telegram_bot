@@ -4,9 +4,6 @@ import (
 	"fmt"
 	"tg_reader_bot/internal/cache"
 	"tg_reader_bot/internal/events"
-	"tg_reader_bot/internal/protobufs"
-
-	"google.golang.org/protobuf/proto"
 )
 
 func (b *Bot) enterChannelName(msg events.MsgContext) (bool, error) {
@@ -32,7 +29,7 @@ func (b *Bot) enterChannelName(msg events.MsgContext) (bool, error) {
 	}
 
 	b.Answer(msg.PeerUser).Textf(msg.Ctx, "Канал [%s](%s) успешно добавлен.", channel.Title, msg.GetMessageText())
-	return true, nil
+	return true, b.showChannelInfo(msg.Ctx, channel.ID, msg.PeerUser, msg.UserCache)
 }
 
 func (b *Bot) enterKeyWord(msg events.MsgContext) (bool, error) {
@@ -49,9 +46,7 @@ func (b *Bot) enterKeyWord(msg events.MsgContext) (bool, error) {
 		return false, nil
 	}
 
-	message := protobufs.ButtonChanneInfo{Id: channel.TelegramID}
-	data, _ := proto.Marshal(&message)
-	err := b.showChannelInfo(msg.Ctx, data, msg.PeerUser, msg.UserCache)
+	err := b.showChannelInfo(msg.Ctx, channel.TelegramID, msg.PeerUser, msg.UserCache)
 	if err != nil {
 		return false, err
 	}

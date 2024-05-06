@@ -24,18 +24,19 @@ type ChannelCache struct {
 }
 
 type UserCache struct {
-	TelegramID      int64
-	State           uint32
-	Channels        map[int64]*ChannelCache
-	DataLoaded      bool
-	ActiveMenuID    int
-	ActiveChannelID int64
-	Mutex           sync.RWMutex
+	TelegramID         int64
+	State              uint32
+	Channels           map[int64]*ChannelCache
+	DataLoaded         bool
+	ActiveMenuID       int
+	ActiveChannelID    int64
+	SecretButtonClicks int
+	Mutex              sync.RWMutex
 }
 
 func CreateUser(user *tg.User) (*UserCache, error) {
 	cache := UserCache{TelegramID: user.ID, State: StateNone, Channels: make(map[int64]*ChannelCache)}
-	err := cache.loadUserData(user)
+	err := cache.loadUserData()
 	return &cache, err
 }
 
@@ -96,7 +97,7 @@ type groupData struct {
 	keyword    sql.NullString
 }
 
-func (u *UserCache) loadUserData(user *tg.User) error {
+func (u *UserCache) loadUserData() error {
 	db := app.GetDatabase()
 
 	rows, err := db.Query("SELECT g.id, g.telegram_id, g.name, g.title, k.id, k.keyword FROM `groups` g LEFT JOIN `keywords` k ON g.id = k.groupid WHERE g.userid = ?", u.TelegramID)

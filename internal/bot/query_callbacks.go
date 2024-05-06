@@ -24,8 +24,11 @@ func (b *Bot) callbackAddNewChannel(btn buttonContext) error {
 
 func (b *Bot) callbackMyChannels(btn buttonContext) error {
 	if len(btn.UserCache.Channels) == 0 {
-		b.Answer(btn.User).Textf(btn.Ctx, "Вы не отслеживаете никакие каналы.")
-		return nil
+		_, err := b.Client.MessagesSetBotCallbackAnswer(btn.Ctx, &tg.MessagesSetBotCallbackAnswerRequest{
+			QueryID: btn.Update.QueryID,
+			Message: "Список пуст",
+		})
+		return err
 	}
 
 	var rows []tg.KeyboardButtonRow
@@ -35,46 +38,52 @@ func (b *Bot) callbackMyChannels(btn buttonContext) error {
 				CreateButton(
 					fmt.Sprintf("%s (%d)", channel.Title, len(channel.KeyWords)),
 					protobufs.MessageID_ChannelInfo,
-					&protobufs.ButtonChanneInfo{Id: channel.TelegramID},
+					&protobufs.ButtonChanneInfo{ChannelId: channel.TelegramID},
 				),
 			},
 		}
 		rows = append(rows, row)
 	}
-	rows = append(rows, CreateBackButton("Назад", protobufs.MessageID_MainPage, nil))
+	rows = append(rows,
+		CreateSpaceButtonRow(),
+		CreateBackButton("Назад", protobufs.MessageID_MainPage, nil),
+	)
 
 	_, err := b.Client.MessagesEditMessage(btn.Ctx, &tg.MessagesEditMessageRequest{
 		Peer:        &tg.InputPeerUser{UserID: btn.Update.UserID},
 		ID:          btn.UserCache.ActiveMenuID,
 		ReplyMarkup: &tg.ReplyInlineMarkup{Rows: rows},
-		Message:     "Ваши отслеживаемые каналы, нажмите, чтобы настроить.",
+		Message:     "Ваши отслеживаемые каналы, нажмите, чтобы настроить.\n ",
 	})
 
 	return err
 }
 
-func (b *Bot) showChannelInfo(ctx context.Context, data []byte, User *tg.User, userCache *cache.UserCache) error {
-	var message protobufs.ButtonChanneInfo
-	proto.Unmarshal(data, &message)
-
-	channel, ok := userCache.Channels[message.Id]
+func (b *Bot) showChannelInfo(ctx context.Context, channelId int64, User *tg.User, userCache *cache.UserCache) error {
+	channel, ok := userCache.Channels[channelId]
 	if !ok {
-		b.Answer(User).Textf(ctx, "Ошибка при чтении ключевых слов.")
+		b.Answer(User).Textf(ctx, "Ошибка при поиске канала.")
 		return nil
 	}
 
 	userCache.ActiveChannelID = channel.TelegramID
 
+	haveWords := len(channel.KeyWords) != 0
+
 	rows := []tg.KeyboardButtonRow{
 		{
 			Buttons: []tg.KeyboardButtonClass{
 				CreateButton(
-					"Добавить новое",
+					"Добавить новое ключевое слово",
 					protobufs.MessageID_AddNewKeyWord,
-					&protobufs.ButtonChanneInfo{Id: channel.TelegramID},
+					&protobufs.ButtonChanneInfo{ChannelId: channel.TelegramID},
 				),
 			},
 		},
+	}
+
+	if haveWords {
+		rows = append(rows, CreateSpaceButtonRow())
 	}
 
 	for id, keyword := range channel.KeyWords {
@@ -89,7 +98,13 @@ func (b *Bot) showChannelInfo(ctx context.Context, data []byte, User *tg.User, u
 		}
 		rows = append(rows, row)
 	}
+
+	if haveWords {
+		rows = append(rows, CreateSpaceButtonRow())
+	}
+
 	rows = append(rows,
+		CreateButtonRow("Удалить канал", protobufs.MessageID_RemoveChannel, &protobufs.ButtonChanneInfo{ChannelId: channel.TelegramID}),
 		CreateBackButton("Назад", protobufs.MessageID_MyChannels, nil),
 		CreateBackButton("На главную", protobufs.MessageID_MainPage, nil),
 	)
@@ -105,7 +120,9 @@ func (b *Bot) showChannelInfo(ctx context.Context, data []byte, User *tg.User, u
 }
 
 func (b *Bot) callbackChannelInfo(btn buttonContext) error {
-	return b.showChannelInfo(btn.Ctx, btn.Data, btn.User, btn.UserCache)
+	var message protobufs.ButtonChanneInfo
+	proto.Unmarshal(btn.Data, &message)
+	return b.showChannelInfo(btn.Ctx, message.ChannelId, btn.User, btn.UserCache)
 }
 
 func (b *Bot) callbackBack(btn buttonContext) error {
@@ -133,7 +150,7 @@ func (b *Bot) callbackAddNewKeyWord(btn buttonContext) error {
 	var message protobufs.ButtonChanneInfo
 	proto.Unmarshal(btn.Data, &message)
 
-	channel, ok := btn.UserCache.Channels[message.Id]
+	channel, ok := btn.UserCache.Channels[message.ChannelId]
 	if !ok {
 		b.Answer(btn.User).Text(btn.Ctx, "Ошибка при чтении ключевых слов.")
 		return nil
@@ -168,7 +185,7 @@ func (b *Bot) callbackRemoveKeyWord(btn buttonContext) error {
 		return nil
 	}
 
-	return b.callbackChannelInfo(btn)
+	return b.showChannelInfo(btn.Ctx, channel.TelegramID, btn.User, btn.UserCache)
 }
 
 func (b *Bot) callbackNextChannels(btn buttonContext) error {
@@ -187,6 +204,53 @@ func (b *Bot) callbackPrevKeyWords(btn buttonContext) error {
 	return nil
 }
 
+func (b *Bot) callbackRemoveChannel(btn buttonContext) error {
+	var message protobufs.ButtonChanneInfo
+	proto.Unmarshal(btn.Data, &message)
+
+	channel, ok := btn.UserCache.Channels[message.ChannelId]
+	if !ok {
+		b.Answer(btn.User).Text(btn.Ctx, "Ошибка при удалении.")
+		return nil
+	}
+
+	channelTitle := channel.Title
+
+	if btn.UserCache.RemoveGroup(message.ChannelId) != nil {
+		b.Answer(btn.User).Textf(btn.Ctx, "Ошибка при удалении канал %s.", channelTitle)
+		return nil
+	}
+
+	b.Answer(btn.User).Textf(btn.Ctx, "Канал %s был удален.", channelTitle)
+
+	if len(btn.UserCache.Channels) == 0 {
+		b.Answer(btn.User).Text(btn.Ctx, "У вас нет отслеживаемых каналов, вы перемещены в главное меню.")
+		return b.callbackMainPage(btn)
+	} else {
+		return b.callbackMyChannels(btn)
+	}
+}
+
+func (b *Bot) callbackSpaceButton(btn buttonContext) error {
+	texts := []string{
+		"Куда вы нажали?", "Это не та кнопка!", "Упс, что-то пошло не так!", "Я бы советовал не нажимать сюда.",
+		"Опять?!", "Вы серьезно?", "Я вас предупреждал!", "О, это становится интересно...",
+		"Теперь это просто забавно!", "Мне нравится ваша настойчивость!", "Вы действительно упорны!", "Продолжайте, не останавливайтесь!",
+		"Нажимайте, как будто от этого зависит жизнь!", "Вы победили, вот ваш приз",
+	}
+
+	/* need some funny image or gif */
+	textIndex := (btn.UserCache.SecretButtonClicks / 5) % len(texts)
+	btn.UserCache.SecretButtonClicks += 1
+
+	_, err := b.Client.MessagesSetBotCallbackAnswer(btn.Ctx, &tg.MessagesSetBotCallbackAnswerRequest{
+		QueryID: btn.Update.QueryID,
+		Message: texts[textIndex],
+	})
+
+	return err
+}
+
 func (b *Bot) registerQueryCallbacks() {
 	b.btnCallbacks[protobufs.MessageID_AddNewChannel] = b.callbackAddNewChannel
 	b.btnCallbacks[protobufs.MessageID_MyChannels] = b.callbackMyChannels
@@ -198,4 +262,6 @@ func (b *Bot) registerQueryCallbacks() {
 	b.btnCallbacks[protobufs.MessageID_Back] = b.callbackBack
 	b.btnCallbacks[protobufs.MessageID_MainPage] = b.callbackMainPage
 	b.btnCallbacks[protobufs.MessageID_ChannelInfo] = b.callbackChannelInfo
+	b.btnCallbacks[protobufs.MessageID_RemoveChannel] = b.callbackRemoveChannel
+	b.btnCallbacks[protobufs.MessageID_Spacer] = b.callbackSpaceButton
 }

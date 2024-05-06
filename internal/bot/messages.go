@@ -38,6 +38,26 @@ func CreateButton(name string, msgID protobufs.MessageID, data proto.Message) *t
 	)
 }
 
+func CreateButtonRow(name string, msgID protobufs.MessageID, data proto.Message) tg.KeyboardButtonRow {
+	return tg.KeyboardButtonRow{
+		Buttons: []tg.KeyboardButtonClass{
+			CreateButton(name, msgID, data),
+		},
+	}
+}
+
+func CreateSpaceButton() *tg.KeyboardButtonCallback {
+	return CreateButton(" ", protobufs.MessageID_Spacer, nil)
+}
+
+func CreateSpaceButtonRow() tg.KeyboardButtonRow {
+	return tg.KeyboardButtonRow{
+		Buttons: []tg.KeyboardButtonClass{
+			CreateSpaceButton(),
+		},
+	}
+}
+
 func CreateBackButton(name string, backMenuID protobufs.MessageID, msg proto.Message) tg.KeyboardButtonRow {
 	button := &protobufs.ButtonMenuBack{Newmenu: backMenuID}
 	if msg != nil {
