@@ -20,20 +20,19 @@ func (b *Bot) getOrCreateUser(ctx context.Context, peerUser *tg.User, create boo
 	}
 
 	user, err := cache.CreateUser(peerUser)
-	b.fillUserGroupsInfo(ctx, user)
+	b.updateUserGroupsInfo(ctx, user)
 	b.cache.Add(peerUser.ID, 10*time.Minute, user)
 
 	return user, err
 }
 
-func (b *Bot) fillUserGroupsInfo(ctx context.Context, userCache *cache.UserCache) {
-	for name, channel := range userCache.Channels {
+func (b *Bot) updateUserGroupsInfo(ctx context.Context, userCache *cache.UserCache) {
+	for _, channel := range userCache.Channels {
 		peer, err := b.getChannelByName(ctx, channel.Name)
 		if err == nil {
-			channel.Name = peer.Title
-			channel.TelegramID = peer.ID
+			channel.Title = peer.Title
 		} else {
-			fmt.Printf("Can't resolve %s | %v\n", name, err)
+			fmt.Printf("Error resolve %v | %v\n", channel, err)
 		}
 	}
 }

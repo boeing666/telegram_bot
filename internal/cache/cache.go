@@ -107,26 +107,27 @@ func (u *UserCache) loadUserData() error {
 
 	defer rows.Close()
 
-	groups := make(map[int64]ChannelCache)
+	channels := make(map[int64]*ChannelCache)
 	for rows.Next() {
-		var groupData groupData
+		var channelData groupData
 
-		err := rows.Scan(&groupData.groupID, &groupData.telegramID, &groupData.groupName, &groupData.groupTitle, &groupData.keywordID, &groupData.keyword)
+		err := rows.Scan(&channelData.groupID, &channelData.telegramID, &channelData.groupName, &channelData.groupTitle, &channelData.keywordID, &channelData.keyword)
 		if err != nil {
 			return fmt.Errorf("error scan user data: %v", err)
 		}
 
-		group, ok := groups[groupData.telegramID]
+		channel, ok := channels[channelData.telegramID]
 		if !ok {
-			group = ChannelCache{KeyWords: make(map[int32]string)}
-			group.DatabaseID = groupData.groupID
-			group.Title = groupData.groupTitle
-			group.Name = groupData.groupName
-			groups[groupData.telegramID] = group
+			channel = &ChannelCache{KeyWords: make(map[int32]string)}
+			channel.TelegramID = channelData.telegramID
+			channel.DatabaseID = channelData.groupID
+			channel.Name = channelData.groupName
+			channel.Title = channelData.groupTitle
+			channels[channelData.telegramID] = channel
 		}
 
-		if groupData.keywordID.Valid {
-			group.KeyWords[groupData.keywordID.Int32] = groupData.keyword.String
+		if channelData.keywordID.Valid {
+			channel.KeyWords[channelData.keywordID.Int32] = channelData.keyword.String
 		}
 	}
 
@@ -134,8 +135,8 @@ func (u *UserCache) loadUserData() error {
 	defer u.Mutex.Unlock()
 
 	u.DataLoaded = true
-	for id, channel := range groups {
-		u.Channels[id] = &channel
+	for id, channel := range channels {
+		u.Channels[id] = channel
 	}
 
 	return nil

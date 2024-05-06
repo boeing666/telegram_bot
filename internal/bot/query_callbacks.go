@@ -68,8 +68,6 @@ func (b *Bot) showChannelInfo(ctx context.Context, channelId int64, User *tg.Use
 
 	userCache.ActiveChannelID = channel.TelegramID
 
-	haveWords := len(channel.KeyWords) != 0
-
 	rows := []tg.KeyboardButtonRow{
 		{
 			Buttons: []tg.KeyboardButtonClass{
@@ -80,10 +78,6 @@ func (b *Bot) showChannelInfo(ctx context.Context, channelId int64, User *tg.Use
 				),
 			},
 		},
-	}
-
-	if haveWords {
-		rows = append(rows, CreateSpaceButtonRow())
 	}
 
 	for id, keyword := range channel.KeyWords {
@@ -99,10 +93,6 @@ func (b *Bot) showChannelInfo(ctx context.Context, channelId int64, User *tg.Use
 		rows = append(rows, row)
 	}
 
-	if haveWords {
-		rows = append(rows, CreateSpaceButtonRow())
-	}
-
 	rows = append(rows,
 		CreateButtonRow("Удалить канал", protobufs.MessageID_RemoveChannel, &protobufs.ButtonChanneInfo{ChannelId: channel.TelegramID}),
 		CreateBackButton("Назад", protobufs.MessageID_MyChannels, nil),
@@ -113,7 +103,7 @@ func (b *Bot) showChannelInfo(ctx context.Context, channelId int64, User *tg.Use
 		Peer:        &tg.InputPeerUser{UserID: userCache.TelegramID},
 		ID:          userCache.ActiveMenuID,
 		ReplyMarkup: &tg.ReplyInlineMarkup{Rows: rows},
-		Message:     fmt.Sprintf("Ключевые слова для канала %s, нажмите на слово, чтобы удалить.", channel.Name),
+		Message:     fmt.Sprintf("Ключевые слова для канала %s(%s)\nНажмите на слово, чтобы его удалить.", channel.Title, channel.Name),
 	})
 
 	return err
@@ -136,14 +126,18 @@ func (b *Bot) callbackBack(btn buttonContext) error {
 	return b.btnCallbacks[message.Newmenu](btn)
 }
 
-func (b *Bot) callbackMainPage(btn buttonContext) error {
-	_, err := b.Client.MessagesEditMessage(btn.Ctx, &tg.MessagesEditMessageRequest{
-		Peer:        &tg.InputPeerUser{UserID: btn.Update.UserID},
-		ID:          btn.UserCache.ActiveMenuID,
+func (b *Bot) showMainPage(ctx context.Context, user *tg.User, userCache *cache.UserCache) error {
+	_, err := b.Client.MessagesEditMessage(ctx, &tg.MessagesEditMessageRequest{
+		Peer:        &tg.InputPeerUser{UserID: user.ID},
+		ID:          userCache.ActiveMenuID,
 		ReplyMarkup: buildInitalMenu(),
-		Message:     fmt.Sprintf("Добро пожаловать %s %s", btn.User.FirstName, btn.User.LastName),
+		Message:     fmt.Sprintf("Добро пожаловать %s %s", user.FirstName, user.LastName),
 	})
 	return err
+}
+
+func (b *Bot) callbackMainPage(btn buttonContext) error {
+	return b.showMainPage(btn.Ctx, btn.User, btn.UserCache)
 }
 
 func (b *Bot) callbackAddNewKeyWord(btn buttonContext) error {
@@ -163,7 +157,7 @@ func (b *Bot) callbackAddNewKeyWord(btn buttonContext) error {
 		Peer:        &tg.InputPeerUser{UserID: btn.Update.UserID},
 		ID:          btn.UserCache.ActiveMenuID,
 		ReplyMarkup: &tg.ReplyInlineMarkup{Rows: rows},
-		Message:     fmt.Sprintf("Канал: [%s]\nВведите ключевое слово или регулярное выражение.", channel.Title),
+		Message:     fmt.Sprintf("Канал: %s (%s)\nВведите ключевое слово или регулярное выражение.", channel.Title, channel.Name),
 	})
 
 	return err

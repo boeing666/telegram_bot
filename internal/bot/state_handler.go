@@ -1,7 +1,6 @@
 package bot
 
 import (
-	"fmt"
 	"tg_reader_bot/internal/cache"
 	"tg_reader_bot/internal/events"
 )
@@ -9,49 +8,46 @@ import (
 func (b *Bot) enterChannelName(msg events.MsgContext) (bool, error) {
 	msg.UserCache.SetState(cache.StateNone)
 
+	b.DeleteMessage(msg.Ctx, msg.Message.ID)
+
 	channel, err := b.getChannelByName(msg.Ctx, msg.GetMessageText())
 	if err != nil {
-		fmt.Println("GetChannelByName", err)
 		b.Answer(msg.PeerUser).Text(msg.Ctx, "Ошибка при выполнении. Попробуйте позже.")
-		return false, nil
+		return false, b.showMainPage(msg.Ctx, msg.PeerUser, msg.UserCache)
 	}
 
 	if msg.UserCache.HasChannelByID(channel.ID) {
-		b.Answer(msg.PeerUser).Textf(msg.Ctx, "Канал [%s](%s) уже был добавлен.", channel.Title, msg.GetMessageText())
-		return false, nil
+		b.Answer(msg.PeerUser).NoWebpage().Textf(msg.Ctx, "Канал [%s](%s) уже был добавлен.", channel.Title, msg.GetMessageText())
+		return false, b.showMainPage(msg.Ctx, msg.PeerUser, msg.UserCache)
 	}
 
 	_, err = msg.UserCache.AddGroup(channel)
 	if err != nil {
-		fmt.Println("AddGroup", err)
 		b.Answer(msg.PeerUser).Text(msg.Ctx, "Ошибка при выполнении. Попробуйте позже.")
-		return false, nil
+		return false, b.showMainPage(msg.Ctx, msg.PeerUser, msg.UserCache)
 	}
 
-	b.Answer(msg.PeerUser).Textf(msg.Ctx, "Канал [%s](%s) успешно добавлен.", channel.Title, msg.GetMessageText())
+	b.Answer(msg.PeerUser).NoWebpage().Textf(msg.Ctx, "Канал [%s](%s) успешно добавлен.", channel.Title, msg.GetMessageText())
 	return true, b.showChannelInfo(msg.Ctx, channel.ID, msg.PeerUser, msg.UserCache)
 }
 
 func (b *Bot) enterKeyWord(msg events.MsgContext) (bool, error) {
 	msg.UserCache.SetState(cache.StateNone)
 
+	b.DeleteMessage(msg.Ctx, msg.Message.ID)
+
 	channel, ok := msg.UserCache.Channels[msg.UserCache.ActiveChannelID]
 	if !ok {
 		b.Answer(msg.PeerUser).Textf(msg.Ctx, "Ошибка при получении канала.")
-		return false, nil
+		return false, b.showMainPage(msg.Ctx, msg.PeerUser, msg.UserCache)
 	}
 
 	if channel.AddKeyword(msg.GetMessageText()) != nil {
 		b.Answer(msg.PeerUser).Textf(msg.Ctx, "Ключевое слово не было добавлено")
-		return false, nil
+		return false, b.showChannelInfo(msg.Ctx, channel.TelegramID, msg.PeerUser, msg.UserCache)
 	}
 
-	err := b.showChannelInfo(msg.Ctx, channel.TelegramID, msg.PeerUser, msg.UserCache)
-	if err != nil {
-		return false, err
-	}
-
-	return true, nil
+	return true, b.showChannelInfo(msg.Ctx, channel.TelegramID, msg.PeerUser, msg.UserCache)
 }
 
 func (b *Bot) stateHandler(msg events.MsgContext) (bool, error) {

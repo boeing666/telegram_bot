@@ -55,3 +55,11 @@ func Init(client *tg.Client) *Bot {
 func (b *Bot) Answer(user *tg.User) *message.RequestBuilder {
 	return b.Sender.To(user.AsInputPeer())
 }
+
+func (b *Bot) DeleteMessage(ctx context.Context, id int) error {
+	_, err := b.Client.MessagesDeleteMessages(ctx, &tg.MessagesDeleteMessagesRequest{
+		Revoke: true,
+		ID:     []int{id},
+	})
+	return err
+}
