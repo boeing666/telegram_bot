@@ -4,11 +4,6 @@ import (
 	"tg_reader_bot/internal/events"
 )
 
-func (b *Bot) handleChannelMessage(msg events.MsgContext) error {
-
-	return nil
-}
-
 /* Parse all commands here */
 func (b *Bot) handlePrivateMessage(msg events.MsgContext) error {
 	if msg.UserData != nil {
@@ -21,6 +16,11 @@ func (b *Bot) handlePrivateMessage(msg events.MsgContext) error {
 		}
 	}
 	return b.Dispatch(msg.GetText(), msg)
+}
+
+func (b *Bot) handleChannelMessage(msg events.MsgContext) error {
+
+	return nil
 }
 
 func (b *Bot) handleGroupChatMessage(msg events.MsgContext) error {

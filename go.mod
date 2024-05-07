@@ -5,7 +5,6 @@ go 1.21.6
 require (
 	github.com/go-sql-driver/mysql v1.7.1
 	github.com/gotd/td v0.98.0
-	github.com/muesli/cache2go v0.0.0-20221011235721-518229cd8021
 	go.uber.org/zap v1.27.0
 	google.golang.org/protobuf v1.34.0
 )
