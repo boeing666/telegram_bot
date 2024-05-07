@@ -5,57 +5,64 @@ import (
 	"tg_reader_bot/internal/events"
 )
 
-func (b *Bot) enterChannelName(msg events.MsgContext) (bool, error) {
-	msg.UserCache.SetState(cache.StateNone)
+func (b *Bot) enterChannelName(msg events.MsgContext) error {
+	user := msg.UserData
+	user.State = cache.StateNone
 
 	b.DeleteMessage(msg.Ctx, msg.Message.ID)
 
-	channel, err := b.getChannelByName(msg.Ctx, msg.GetMessageText())
+	channel, err := b.getChannelByName(msg.Ctx, msg.GetText())
 	if err != nil {
 		b.Answer(msg.PeerUser).Text(msg.Ctx, "Ошибка при выполнении. Попробуйте позже.")
-		return false, b.showMainPage(msg.Ctx, msg.PeerUser, msg.UserCache)
+		return b.showMainPage(msg.Ctx, msg.PeerUser, user)
 	}
 
-	if msg.UserCache.HasChannelByID(channel.ID) {
-		b.Answer(msg.PeerUser).NoWebpage().Textf(msg.Ctx, "Канал [%s](%s) уже был добавлен.", channel.Title, msg.GetMessageText())
-		return false, b.showMainPage(msg.Ctx, msg.PeerUser, msg.UserCache)
+	if user.HasChannelByID(channel.ID) {
+		b.Answer(msg.PeerUser).NoWebpage().Textf(msg.Ctx, "Канал [%s](%s) уже был добавлен.", channel.Title, msg.GetText())
+		return b.showMainPage(msg.Ctx, msg.PeerUser, user)
 	}
 
-	_, err = msg.UserCache.AddGroup(channel)
+	channelName := channel.Username
+	if len(channelName) == 0 {
+		channelName = channel.Usernames[0].Username
+	}
+
+	_, err = b.channelsCache.AddChannelToUser(user.TelegramID, 0, channel.ID, channelName, channel.Title, true)
 	if err != nil {
 		b.Answer(msg.PeerUser).Text(msg.Ctx, "Ошибка при выполнении. Попробуйте позже.")
-		return false, b.showMainPage(msg.Ctx, msg.PeerUser, msg.UserCache)
+		return b.showMainPage(msg.Ctx, msg.PeerUser, user)
 	}
 
-	b.Answer(msg.PeerUser).NoWebpage().Textf(msg.Ctx, "Канал [%s](%s) успешно добавлен.", channel.Title, msg.GetMessageText())
-	return true, b.showChannelInfo(msg.Ctx, channel.ID, msg.PeerUser, msg.UserCache)
+	b.Answer(msg.PeerUser).NoWebpage().Textf(msg.Ctx, "Канал [%s](%s) успешно добавлен.", channel.Title, msg.GetText())
+	return b.showChannelInfo(msg.Ctx, channel.ID, msg.PeerUser, user)
 }
 
-func (b *Bot) enterKeyWord(msg events.MsgContext) (bool, error) {
-	msg.UserCache.SetState(cache.StateNone)
+func (b *Bot) enterKeyWord(msg events.MsgContext) error {
+	user := msg.UserData
+	user.State = cache.StateNone
 
 	b.DeleteMessage(msg.Ctx, msg.Message.ID)
 
-	channel, ok := msg.UserCache.Channels[msg.UserCache.ActiveChannelID]
-	if !ok {
+	channel := user.GetActiveChannel()
+	if channel == nil {
 		b.Answer(msg.PeerUser).Textf(msg.Ctx, "Ошибка при получении канала.")
-		return false, b.showMainPage(msg.Ctx, msg.PeerUser, msg.UserCache)
+		return b.showMainPage(msg.Ctx, msg.PeerUser, user)
 	}
 
-	if channel.AddKeyword(msg.GetMessageText()) != nil {
-		b.Answer(msg.PeerUser).Textf(msg.Ctx, "Ключевое слово не было добавлено")
-		return false, b.showChannelInfo(msg.Ctx, channel.TelegramID, msg.PeerUser, msg.UserCache)
+	err := channel.AddKeyword(user.TelegramID, 0, msg.GetText(), true)
+	if err != nil {
+		return err
 	}
 
-	return true, b.showChannelInfo(msg.Ctx, channel.TelegramID, msg.PeerUser, msg.UserCache)
+	return b.showChannelInfo(msg.Ctx, channel.TelegramID, msg.PeerUser, user)
 }
 
 func (b *Bot) stateHandler(msg events.MsgContext) (bool, error) {
-	switch msg.UserCache.State {
+	switch msg.UserData.State {
 	case cache.WaitingChannelName:
-		return b.enterChannelName(msg)
+		return true, b.enterChannelName(msg)
 	case cache.WaitingKeyWord:
-		return b.enterKeyWord(msg)
+		return true, b.enterKeyWord(msg)
 	}
 
 	return false, nil

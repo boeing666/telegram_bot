@@ -11,7 +11,7 @@ func (b *Bot) handleChannelMessage(msg events.MsgContext) error {
 
 /* Parse all commands here */
 func (b *Bot) handlePrivateMessage(msg events.MsgContext) error {
-	if msg.UserCache != nil {
+	if msg.UserData != nil {
 		ok, err := b.stateHandler(msg)
 		if ok {
 			return nil
@@ -20,7 +20,7 @@ func (b *Bot) handlePrivateMessage(msg events.MsgContext) error {
 			return err
 		}
 	}
-	return b.Dispatch(msg.GetMessageText(), msg)
+	return b.Dispatch(msg.GetText(), msg)
 }
 
 func (b *Bot) handleGroupChatMessage(msg events.MsgContext) error {

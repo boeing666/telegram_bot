@@ -36,6 +36,6 @@ message buttonMenuBack {
 }
 
 message buttonRemoveKeyWord {
-  int32 keyword_id = 1;
+  int64 keyword_id = 1;
   int64 group_id = 2;
 }

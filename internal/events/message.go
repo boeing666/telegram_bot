@@ -16,9 +16,9 @@ type MsgContext struct {
 	PeerUser    *tg.User
 	PeerChat    *tg.Chat
 	PeerChannel *tg.Channel
-	UserCache   *cache.UserCache
+	UserData    *cache.UserData
 }
 
-func (m *MsgContext) GetMessageText() string {
+func (m *MsgContext) GetText() string {
 	return m.Message.Message
 }

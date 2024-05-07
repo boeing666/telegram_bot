@@ -12,10 +12,10 @@ import (
 
 func (b *Bot) callbackAddNewChannel(btn buttonContext) error {
 	rows := []tg.KeyboardButtonRow{CreateBackButton("Отмена", protobufs.MessageID_MainPage, nil)}
-	btn.UserCache.SetState(cache.WaitingChannelName)
+	btn.UserData.State = cache.WaitingChannelName
 	_, err := b.Client.MessagesEditMessage(btn.Ctx, &tg.MessagesEditMessageRequest{
 		Peer:        &tg.InputPeerUser{UserID: btn.Update.UserID},
-		ID:          btn.UserCache.ActiveMenuID,
+		ID:          btn.UserData.ActiveMenuID,
 		ReplyMarkup: &tg.ReplyInlineMarkup{Rows: rows},
 		Message:     "Введите в чат ссылку/айди имя чата/группы.",
 	})
@@ -23,20 +23,16 @@ func (b *Bot) callbackAddNewChannel(btn buttonContext) error {
 }
 
 func (b *Bot) callbackMyChannels(btn buttonContext) error {
-	if len(btn.UserCache.Channels) == 0 {
-		_, err := b.Client.MessagesSetBotCallbackAnswer(btn.Ctx, &tg.MessagesSetBotCallbackAnswerRequest{
-			QueryID: btn.Update.QueryID,
-			Message: "Список каналов пуст",
-		})
-		return err
+	if len(btn.UserData.Channels) == 0 {
+		return b.SetAnswerCallback(btn.Ctx, "Список каналов пуст", btn.Update.QueryID)
 	}
 
 	var rows []tg.KeyboardButtonRow
-	for _, channel := range btn.UserCache.Channels {
+	for _, channel := range btn.UserData.Channels {
 		row := tg.KeyboardButtonRow{
 			Buttons: []tg.KeyboardButtonClass{
 				CreateButton(
-					fmt.Sprintf("%s (%d)", channel.Title, len(channel.KeyWords)),
+					fmt.Sprintf("%s (%d)", channel.Title, channel.GetUserKeyWordsCount(btn.UserData.TelegramID)),
 					protobufs.MessageID_ChannelInfo,
 					&protobufs.ButtonChanneInfo{ChannelId: channel.TelegramID},
 				),
@@ -51,7 +47,7 @@ func (b *Bot) callbackMyChannels(btn buttonContext) error {
 
 	_, err := b.Client.MessagesEditMessage(btn.Ctx, &tg.MessagesEditMessageRequest{
 		Peer:        &tg.InputPeerUser{UserID: btn.Update.UserID},
-		ID:          btn.UserCache.ActiveMenuID,
+		ID:          btn.UserData.ActiveMenuID,
 		ReplyMarkup: &tg.ReplyInlineMarkup{Rows: rows},
 		Message:     "Ваши отслеживаемые каналы, нажмите, чтобы настроить.\n ",
 	})
@@ -59,14 +55,14 @@ func (b *Bot) callbackMyChannels(btn buttonContext) error {
 	return err
 }
 
-func (b *Bot) showChannelInfo(ctx context.Context, channelId int64, User *tg.User, userCache *cache.UserCache) error {
-	channel, ok := userCache.Channels[channelId]
+func (b *Bot) showChannelInfo(ctx context.Context, channelId int64, User *tg.User, user *cache.UserData) error {
+	channel, ok := user.Channels[channelId]
 	if !ok {
 		b.Answer(User).Textf(ctx, "Ошибка при поиске канала.")
 		return nil
 	}
 
-	userCache.ActiveChannelID = channel.TelegramID
+	user.ActiveChannelID = channel.TelegramID
 
 	rows := []tg.KeyboardButtonRow{
 		{
@@ -80,17 +76,20 @@ func (b *Bot) showChannelInfo(ctx context.Context, channelId int64, User *tg.Use
 		},
 	}
 
-	for id, keyword := range channel.KeyWords {
-		row := tg.KeyboardButtonRow{
-			Buttons: []tg.KeyboardButtonClass{
-				CreateButton(
-					keyword,
-					protobufs.MessageID_RemoveKeyWord,
-					&protobufs.ButtonRemoveKeyWord{KeywordId: id, GroupId: channel.TelegramID},
-				),
-			},
+	keywords := channel.GetUserKeyWords(user.TelegramID)
+	if keywords != nil {
+		for id, keyword := range *keywords {
+			row := tg.KeyboardButtonRow{
+				Buttons: []tg.KeyboardButtonClass{
+					CreateButton(
+						keyword,
+						protobufs.MessageID_RemoveKeyWord,
+						&protobufs.ButtonRemoveKeyWord{KeywordId: id, GroupId: channel.TelegramID},
+					),
+				},
+			}
+			rows = append(rows, row)
 		}
-		rows = append(rows, row)
 	}
 
 	rows = append(rows,
@@ -101,8 +100,8 @@ func (b *Bot) showChannelInfo(ctx context.Context, channelId int64, User *tg.Use
 	)
 
 	_, err := b.Client.MessagesEditMessage(ctx, &tg.MessagesEditMessageRequest{
-		Peer:        &tg.InputPeerUser{UserID: userCache.TelegramID},
-		ID:          userCache.ActiveMenuID,
+		Peer:        &tg.InputPeerUser{UserID: user.TelegramID},
+		ID:          user.ActiveMenuID,
 		ReplyMarkup: &tg.ReplyInlineMarkup{Rows: rows},
 		Message:     fmt.Sprintf("Ключевые слова для канала %s(%s)\nНажмите на слово, чтобы его удалить.", channel.Title, channel.Name),
 	})
@@ -113,7 +112,7 @@ func (b *Bot) showChannelInfo(ctx context.Context, channelId int64, User *tg.Use
 func (b *Bot) callbackChannelInfo(btn buttonContext) error {
 	var message protobufs.ButtonChanneInfo
 	proto.Unmarshal(btn.Data, &message)
-	return b.showChannelInfo(btn.Ctx, message.ChannelId, btn.User, btn.UserCache)
+	return b.showChannelInfo(btn.Ctx, message.ChannelId, btn.User, btn.UserData)
 }
 
 func (b *Bot) callbackBack(btn buttonContext) error {
@@ -127,7 +126,7 @@ func (b *Bot) callbackBack(btn buttonContext) error {
 	return b.btnCallbacks[message.Newmenu](btn)
 }
 
-func (b *Bot) showMainPage(ctx context.Context, user *tg.User, userCache *cache.UserCache) error {
+func (b *Bot) showMainPage(ctx context.Context, user *tg.User, userCache *cache.UserData) error {
 	_, err := b.Client.MessagesEditMessage(ctx, &tg.MessagesEditMessageRequest{
 		Peer:        &tg.InputPeerUser{UserID: user.ID},
 		ID:          userCache.ActiveMenuID,
@@ -138,25 +137,25 @@ func (b *Bot) showMainPage(ctx context.Context, user *tg.User, userCache *cache.
 }
 
 func (b *Bot) callbackMainPage(btn buttonContext) error {
-	return b.showMainPage(btn.Ctx, btn.User, btn.UserCache)
+	return b.showMainPage(btn.Ctx, btn.User, btn.UserData)
 }
 
 func (b *Bot) callbackAddNewKeyWord(btn buttonContext) error {
 	var message protobufs.ButtonChanneInfo
 	proto.Unmarshal(btn.Data, &message)
 
-	channel, ok := btn.UserCache.Channels[message.ChannelId]
+	channel, ok := btn.UserData.Channels[message.ChannelId]
 	if !ok {
 		b.Answer(btn.User).Text(btn.Ctx, "Ошибка при чтении ключевых слов.")
 		return nil
 	}
 
-	btn.UserCache.SetState(cache.WaitingKeyWord)
+	btn.UserData.State = cache.WaitingKeyWord
 
 	rows := []tg.KeyboardButtonRow{CreateBackButton("Отмена", protobufs.MessageID_ChannelInfo, &message)}
 	_, err := b.Client.MessagesEditMessage(btn.Ctx, &tg.MessagesEditMessageRequest{
 		Peer:        &tg.InputPeerUser{UserID: btn.Update.UserID},
-		ID:          btn.UserCache.ActiveMenuID,
+		ID:          btn.UserData.ActiveMenuID,
 		ReplyMarkup: &tg.ReplyInlineMarkup{Rows: rows},
 		Message:     fmt.Sprintf("Канал: %s (%s)\nВведите ключевое слово или регулярное выражение.", channel.Title, channel.Name),
 	})
@@ -168,19 +167,19 @@ func (b *Bot) callbackRemoveKeyWord(btn buttonContext) error {
 	var message protobufs.ButtonRemoveKeyWord
 	proto.Unmarshal(btn.Data, &message)
 
-	channel, ok := btn.UserCache.Channels[message.GroupId]
+	channel, ok := btn.UserData.Channels[message.GroupId]
 	if !ok {
 		b.Answer(btn.User).Text(btn.Ctx, "Ошибка при удалении.")
 		return nil
 	}
 
-	err := channel.RemoveKeyword(message.KeywordId)
+	err := channel.RemoveKeyword(btn.UserData.TelegramID, message.KeywordId, true)
 	if err != nil {
 		b.Answer(btn.User).Text(btn.Ctx, "Ошибка при удалении.")
 		return nil
 	}
 
-	return b.showChannelInfo(btn.Ctx, channel.TelegramID, btn.User, btn.UserCache)
+	return b.showChannelInfo(btn.Ctx, channel.TelegramID, btn.User, btn.UserData)
 }
 
 func (b *Bot) callbackNextChannels(btn buttonContext) error {
@@ -203,7 +202,7 @@ func (b *Bot) callbackRemoveChannel(btn buttonContext) error {
 	var message protobufs.ButtonChanneInfo
 	proto.Unmarshal(btn.Data, &message)
 
-	channel, ok := btn.UserCache.Channels[message.ChannelId]
+	channel, ok := btn.UserData.Channels[message.ChannelId]
 	if !ok {
 		b.Answer(btn.User).Text(btn.Ctx, "Ошибка при удалении.")
 		return nil
@@ -211,14 +210,14 @@ func (b *Bot) callbackRemoveChannel(btn buttonContext) error {
 
 	channelTitle := channel.Title
 
-	if btn.UserCache.RemoveGroup(message.ChannelId) != nil {
+	if b.channelsCache.RemoveChannelFromUser(btn.UserData.TelegramID, message.ChannelId, true) != nil {
 		b.Answer(btn.User).Textf(btn.Ctx, "Ошибка при удалении канал %s.", channelTitle)
 		return nil
 	}
 
 	b.Answer(btn.User).Textf(btn.Ctx, "Канал %s был удален.", channelTitle)
 
-	if len(btn.UserCache.Channels) == 0 {
+	if len(btn.UserData.Channels) == 0 {
 		b.Answer(btn.User).Text(btn.Ctx, "У вас нет отслеживаемых каналов, вы перемещены в главное меню.")
 		return b.callbackMainPage(btn)
 	} else {
@@ -235,15 +234,10 @@ func (b *Bot) callbackSpaceButton(btn buttonContext) error {
 	}
 
 	/* need some funny image or gif */
-	textIndex := (btn.UserCache.SecretButtonClicks / 3) % len(texts)
-	btn.UserCache.SecretButtonClicks += 1
+	textIndex := (btn.UserData.SecretButtonClicks / 3) % len(texts)
+	btn.UserData.SecretButtonClicks += 1
 
-	_, err := b.Client.MessagesSetBotCallbackAnswer(btn.Ctx, &tg.MessagesSetBotCallbackAnswerRequest{
-		QueryID: btn.Update.QueryID,
-		Message: texts[textIndex],
-	})
-
-	return err
+	return b.SetAnswerCallback(btn.Ctx, texts[textIndex], btn.Update.QueryID)
 }
 
 func (b *Bot) registerQueryCallbacks() {

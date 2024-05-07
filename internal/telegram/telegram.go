@@ -87,7 +87,8 @@ func Run(ctx context.Context, config *config.ConfigStructure) error {
 		}
 
 		return updatesHandler.Run(ctx, api, user.ID, updates.AuthOptions{
-			IsBot: true,
+			IsBot:   true,
+			OnStart: func(ctx context.Context) { bot.LoadUsersChannels() },
 		})
 	})
 }

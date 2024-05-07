@@ -1,191 +1,196 @@
 package cache
 
 import (
-	"database/sql"
 	"fmt"
-	"sync"
 	"tg_reader_bot/internal/app"
-
-	"github.com/gotd/td/tg"
 )
 
-const (
-	StateNone = iota
-	WaitingChannelName
-	WaitingKeyWord
-)
-
-type ChannelCache struct {
-	DatabaseID int
-	TelegramID int64
-	Name       string
-	Title      string
-	KeyWords   map[int32]string
-}
-
-type UserCache struct {
-	TelegramID         int64
-	State              uint32
-	Channels           map[int64]*ChannelCache
-	DataLoaded         bool
-	ActiveMenuID       int
-	ActiveChannelID    int64
-	SecretButtonClicks int
-	Mutex              sync.RWMutex
-}
-
-func CreateUser(user *tg.User) (*UserCache, error) {
-	cache := UserCache{TelegramID: user.ID, State: StateNone, Channels: make(map[int64]*ChannelCache)}
-	err := cache.loadUserData()
-	return &cache, err
-}
-
-func (uc *UserCache) AddGroup(channel *tg.Channel) (*ChannelCache, error) {
+func (cm *ChannelsManager) LoadUsersData() {
 	db := app.GetDatabase()
 
-	if cache, exists := uc.Channels[channel.ID]; exists {
-		return cache, nil
-	}
-
-	result, err := db.Exec("INSERT INTO `groups` (`id`, `userid`, `telegram_id`, `name`, `title`) VALUES (NULL, ?, ?, ?, ?)",
-		uc.TelegramID, channel.ID, channel.Username, channel.Title)
+	groupsRows, err := db.Query("SELECT `id`, `userid`, `groupid`, `name`, `title` FROM `groups`")
 	if err != nil {
-		return nil, fmt.Errorf("error adding group to database: %v", err)
+		panic(err)
+	}
+	defer groupsRows.Close()
+
+	channelKeyWords := make(map[int64]*ChannelInfo)
+
+	for groupsRows.Next() {
+		var group rowGroups
+		if err := groupsRows.Scan(&group.ID, &group.UserID, &group.TelegramID, &group.Name, &group.Title); err != nil {
+			panic(err)
+		}
+
+		channel, _ := cm.AddChannelToUser(group.UserID, group.ID, group.TelegramID, group.Name, group.Title, false)
+		channelKeyWords[group.ID] = channel
 	}
 
-	channelDBID, err := result.LastInsertId()
+	keywordsRows, err := db.Query("SELECT `id`, `group_fk`, keyword FROM `keywords`")
 	if err != nil {
-		return nil, fmt.Errorf("error get insert channel id: %v", err)
+		panic(err)
 	}
 
-	uc.Mutex.Lock()
-	defer uc.Mutex.Unlock()
+	defer keywordsRows.Close()
 
-	cache := ChannelCache{
-		DatabaseID: int(channelDBID),
-		TelegramID: channel.ID,
-		Name:       channel.Username,
-		Title:      channel.Title,
-		KeyWords:   make(map[int32]string),
+	for keywordsRows.Next() {
+		var keyword rowKeywords
+		if err := keywordsRows.Scan(&keyword.DatabaseID, &keyword.GroupFK, &keyword.Keyword); err != nil {
+			panic(err)
+		}
+
+		if channel, ok := channelKeyWords[keyword.GroupFK]; ok {
+			channel.AddKeyword(123, keyword.DatabaseID, keyword.Keyword, false)
+		}
 	}
-
-	uc.Channels[channel.ID] = &cache
-	return &cache, nil
 }
 
-func (uc *UserCache) RemoveGroup(id int64) error {
-	db := app.GetDatabase()
+func (cm *ChannelsManager) AddChannelToUser(userID int64, databaseID int64, channelID int64, name, title string, addToDB bool) (*ChannelInfo, error) {
+	if addToDB {
+		db := app.GetDatabase()
 
-	_, err := db.Exec("DELETE FROM `groups` WHERE `userid` = ? AND `telegram_id` = ?", uc.TelegramID, id)
-	if err != nil {
-		return fmt.Errorf("error remove group: %v", err)
-	}
+		result, err := db.Exec("INSERT INTO `groups` (`id`, `userid`, `groupid`, `name`, `title`) VALUES (NULL, ?, ?, ?, ?)",
+			userID, channelID, name, title)
 
-	uc.Mutex.Lock()
-	defer uc.Mutex.Unlock()
-
-	delete(uc.Channels, id)
-	return nil
-}
-
-type groupData struct {
-	groupID    int
-	telegramID int64
-	groupName  string
-	groupTitle string
-	keywordID  sql.NullInt32
-	keyword    sql.NullString
-}
-
-func (u *UserCache) loadUserData() error {
-	db := app.GetDatabase()
-
-	rows, err := db.Query("SELECT g.id, g.telegram_id, g.name, g.title, k.id, k.keyword FROM `groups` g LEFT JOIN `keywords` k ON g.id = k.groupid WHERE g.userid = ?", u.TelegramID)
-	if err != nil {
-		return fmt.Errorf("error select user data: %v", err)
-	}
-
-	defer rows.Close()
-
-	channels := make(map[int64]*ChannelCache)
-	for rows.Next() {
-		var channelData groupData
-
-		err := rows.Scan(&channelData.groupID, &channelData.telegramID, &channelData.groupName, &channelData.groupTitle, &channelData.keywordID, &channelData.keyword)
 		if err != nil {
-			return fmt.Errorf("error scan user data: %v", err)
+			return nil, fmt.Errorf("error adding group to database: %v", err)
 		}
 
-		channel, ok := channels[channelData.telegramID]
-		if !ok {
-			channel = &ChannelCache{KeyWords: make(map[int32]string)}
-			channel.TelegramID = channelData.telegramID
-			channel.DatabaseID = channelData.groupID
-			channel.Name = channelData.groupName
-			channel.Title = channelData.groupTitle
-			channels[channelData.telegramID] = channel
+		databaseID, err = result.LastInsertId()
+		if err != nil {
+			return nil, fmt.Errorf("error get insert channel id: %v", err)
 		}
 
-		if channelData.keywordID.Valid {
-			channel.KeyWords[channelData.keywordID.Int32] = channelData.keyword.String
-		}
+		cm.Mutex.Lock()
+		defer cm.Mutex.Unlock()
 	}
 
-	u.Mutex.Lock()
-	defer u.Mutex.Unlock()
+	user, ok := cm.Users[userID]
+	if !ok {
+		user = &UserData{
+			TelegramID: userID,
+			Channels:   make(map[int64]*ChannelInfo),
+		}
+		cm.Users[userID] = user
+	}
 
-	u.DataLoaded = true
-	for id, channel := range channels {
-		u.Channels[id] = channel
+	channel, ok := cm.Channels[channelID]
+	if !ok {
+		channel = &ChannelInfo{
+			UsersKeyWords: make(map[int64]*ChannelKeyWords),
+			DatabaseID:    databaseID,
+			TelegramID:    channelID,
+			Name:          name,
+			Title:         title,
+			LastParseTime: 0,
+		}
+		cm.Channels[channelID] = channel
+	}
+
+	user.Channels[channelID] = channel
+
+	return channel, nil
+}
+
+func (cm *ChannelsManager) RemoveChannelFromUser(userID int64, channelID int64, addToDB bool) error {
+	if addToDB {
+		db := app.GetDatabase()
+		_, err := db.Exec("DELETE FROM `groups` WHERE `userid` = ? AND `groupid` = ?", userID, channelID)
+		if err != nil {
+			return fmt.Errorf("error remove group: %v", err)
+		}
+
+		cm.Mutex.Lock()
+		defer cm.Mutex.Unlock()
+	}
+
+	if user, ok := cm.Users[userID]; ok {
+		delete(user.Channels, channelID)
+	}
+
+	if channel, ok := cm.Channels[channelID]; ok {
+		delete(channel.UsersKeyWords, userID)
 	}
 
 	return nil
 }
 
-func (channel *ChannelCache) AddKeyword(keyword string) error {
-	db := app.GetDatabase()
+func (channel *ChannelInfo) AddKeyword(userID int64, keywordID int64, keyword string, addToDB bool) error {
+	if addToDB {
+		db := app.GetDatabase()
 
-	result, err := db.Exec("INSERT INTO `keywords` (`id`, `groupid`, `keyword`) VALUES (NULL, ?, ?)", channel.DatabaseID, keyword)
-	if err != nil {
-		return fmt.Errorf("error adding keyword: %v", err)
+		result, err := db.Exec("INSERT INTO `keywords` (`id`, `group_fk`, `keyword`) VALUES (NULL, ?, ?)", channel.DatabaseID, keyword)
+		if err != nil {
+			return fmt.Errorf("error adding keyword: %v", err)
+		}
+
+		keywordID, err = result.LastInsertId()
+		if err != nil {
+			return err
+		}
 	}
 
-	keywordID, err := result.LastInsertId()
-	if err != nil {
-		return err
+	usersKeywords, ok := channel.UsersKeyWords[userID]
+	if ok {
+		usersKeywords.Keywords[keywordID] = keyword
+	} else {
+		usersKeywords = &ChannelKeyWords{Keywords: make(map[int64]string)}
+		usersKeywords.Keywords[keywordID] = keyword
+		channel.UsersKeyWords[userID] = usersKeywords
 	}
 
-	channel.KeyWords[int32(keywordID)] = keyword
 	return nil
 }
 
-func (channel *ChannelCache) RemoveKeyword(keywordID int32) error {
-	db := app.GetDatabase()
+func (channel *ChannelInfo) RemoveKeyword(userID int64, keywordID int64, addToDB bool) error {
+	if addToDB {
+		db := app.GetDatabase()
 
-	_, err := db.Exec("DELETE FROM `keywords` WHERE `id` = ?", keywordID)
-	if err != nil {
-		return fmt.Errorf("error remove keyword: %v", err)
+		_, err := db.Exec("DELETE FROM `keywords` WHERE `id` = ?", keywordID)
+		if err != nil {
+			return fmt.Errorf("error remove keyword: %v", err)
+		}
 	}
 
-	delete(channel.KeyWords, keywordID)
+	if usersKeywords, ok := channel.UsersKeyWords[userID]; ok {
+		delete(usersKeywords.Keywords, keywordID)
+	}
+
 	return nil
 }
 
-func (uc *UserCache) HasChannelByID(channelID int64) bool {
-	uc.Mutex.RLock()
-	defer uc.Mutex.RUnlock()
-	_, ok := uc.Channels[channelID]
+func (cm *ChannelsManager) GetUserData(userID int64, create bool) *UserData {
+	if user, ok := cm.Users[userID]; ok {
+		return user
+	} else if create {
+		user := &UserData{TelegramID: userID, Channels: map[int64]*ChannelInfo{}}
+		cm.Users[userID] = user
+		return user
+	}
+	return nil
+}
+
+func (cm *ChannelInfo) GetUserKeyWords(userID int64) *map[int64]string {
+	if user, ok := cm.UsersKeyWords[userID]; ok {
+		return &user.Keywords
+	}
+	return nil
+}
+
+func (cm *ChannelInfo) GetUserKeyWordsCount(userID int64) int {
+	keyWords := cm.GetUserKeyWords(userID)
+	if keyWords != nil {
+		return len(*keyWords)
+	}
+
+	return 0
+}
+
+func (user *UserData) HasChannelByID(telegramID int64) bool {
+	_, ok := user.Channels[telegramID]
 	return ok
 }
 
-func (uc *UserCache) SetState(state uint32) {
-	uc.Mutex.Lock()
-	defer uc.Mutex.Unlock()
-	uc.State = state
-}
-
-func (uc *UserCache) GetState() uint32 {
-	uc.Mutex.RLock()
-	defer uc.Mutex.RUnlock()
-	return uc.State
+func (user *UserData) GetActiveChannel() *ChannelInfo {
+	return user.Channels[user.ActiveChannelID]
 }
