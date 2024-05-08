@@ -13,7 +13,7 @@ import (
 func (b *Bot) callbackAddNewChannel(btn buttonContext) error {
 	rows := []tg.KeyboardButtonRow{CreateBackButton("Отмена", protobufs.MessageID_MainPage, nil)}
 	btn.UserData.State = cache.WaitingChannelName
-	_, err := b.Client.MessagesEditMessage(btn.Ctx, &tg.MessagesEditMessageRequest{
+	_, err := b.API().MessagesEditMessage(btn.Ctx, &tg.MessagesEditMessageRequest{
 		Peer:        &tg.InputPeerUser{UserID: btn.Update.UserID},
 		ID:          btn.UserData.ActiveMenuID,
 		ReplyMarkup: &tg.ReplyInlineMarkup{Rows: rows},
@@ -45,7 +45,7 @@ func (b *Bot) callbackMyChannels(btn buttonContext) error {
 		CreateBackButton("Назад", protobufs.MessageID_MainPage, nil),
 	)
 
-	_, err := b.Client.MessagesEditMessage(btn.Ctx, &tg.MessagesEditMessageRequest{
+	_, err := b.API().MessagesEditMessage(btn.Ctx, &tg.MessagesEditMessageRequest{
 		Peer:        &tg.InputPeerUser{UserID: btn.Update.UserID},
 		ID:          btn.UserData.ActiveMenuID,
 		ReplyMarkup: &tg.ReplyInlineMarkup{Rows: rows},
@@ -99,7 +99,7 @@ func (b *Bot) showChannelInfo(ctx context.Context, channelId int64, User *tg.Use
 		CreateBackButton("На главную", protobufs.MessageID_MainPage, nil),
 	)
 
-	_, err := b.Client.MessagesEditMessage(ctx, &tg.MessagesEditMessageRequest{
+	_, err := b.API().MessagesEditMessage(ctx, &tg.MessagesEditMessageRequest{
 		Peer:        &tg.InputPeerUser{UserID: user.TelegramID},
 		ID:          user.ActiveMenuID,
 		ReplyMarkup: &tg.ReplyInlineMarkup{Rows: rows},
@@ -127,7 +127,7 @@ func (b *Bot) callbackBack(btn buttonContext) error {
 }
 
 func (b *Bot) showMainPage(ctx context.Context, user *tg.User, userCache *cache.UserData) error {
-	_, err := b.Client.MessagesEditMessage(ctx, &tg.MessagesEditMessageRequest{
+	_, err := b.API().MessagesEditMessage(ctx, &tg.MessagesEditMessageRequest{
 		Peer:        &tg.InputPeerUser{UserID: user.ID},
 		ID:          userCache.ActiveMenuID,
 		ReplyMarkup: buildInitalMenu(),
@@ -153,7 +153,7 @@ func (b *Bot) callbackAddNewKeyWord(btn buttonContext) error {
 	btn.UserData.State = cache.WaitingKeyWord
 
 	rows := []tg.KeyboardButtonRow{CreateBackButton("Отмена", protobufs.MessageID_ChannelInfo, &message)}
-	_, err := b.Client.MessagesEditMessage(btn.Ctx, &tg.MessagesEditMessageRequest{
+	_, err := b.API().MessagesEditMessage(btn.Ctx, &tg.MessagesEditMessageRequest{
 		Peer:        &tg.InputPeerUser{UserID: btn.Update.UserID},
 		ID:          btn.UserData.ActiveMenuID,
 		ReplyMarkup: &tg.ReplyInlineMarkup{Rows: rows},
@@ -180,22 +180,6 @@ func (b *Bot) callbackRemoveKeyWord(btn buttonContext) error {
 	}
 
 	return b.showChannelInfo(btn.Ctx, channel.TelegramID, btn.User, btn.UserData)
-}
-
-func (b *Bot) callbackNextChannels(btn buttonContext) error {
-	return nil
-}
-
-func (b *Bot) callbackPrevChannels(btn buttonContext) error {
-	return nil
-}
-
-func (b *Bot) callbackNextKeyWords(btn buttonContext) error {
-	return nil
-}
-
-func (b *Bot) callbackPrevKeyWords(btn buttonContext) error {
-	return nil
 }
 
 func (b *Bot) callbackRemoveChannel(btn buttonContext) error {
@@ -245,9 +229,6 @@ func (b *Bot) registerQueryCallbacks() {
 	b.btnCallbacks[protobufs.MessageID_MyChannels] = b.callbackMyChannels
 	b.btnCallbacks[protobufs.MessageID_AddNewKeyWord] = b.callbackAddNewKeyWord
 	b.btnCallbacks[protobufs.MessageID_RemoveKeyWord] = b.callbackRemoveKeyWord
-	b.btnCallbacks[protobufs.MessageID_NextChannels] = b.callbackNextChannels
-	b.btnCallbacks[protobufs.MessageID_PrevChannels] = b.callbackNextKeyWords
-	b.btnCallbacks[protobufs.MessageID_NextKeyWords] = b.callbackPrevKeyWords
 	b.btnCallbacks[protobufs.MessageID_Back] = b.callbackBack
 	b.btnCallbacks[protobufs.MessageID_MainPage] = b.callbackMainPage
 	b.btnCallbacks[protobufs.MessageID_ChannelInfo] = b.callbackChannelInfo

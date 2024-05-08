@@ -9,7 +9,7 @@ func (b *Bot) startCommand(msg events.MsgContext) error {
 		"Ты можешь добавить необходимый канал, и настроить ключевые слова для него.\n" +
 		"Чтобы отслеживать приватные чаты или каналы, добавь меня в них.\n"
 
-	_, err := b.Answer(msg.PeerUser).Markup(buildInitalMenu()).Text(msg.Ctx, welcomeText)
+	_, err := b.Sender.To(msg.PeerUser.AsInputPeer()).Markup(buildInitalMenu()).Text(msg.Ctx, welcomeText)
 	return err
 }
 

@@ -4,11 +4,15 @@ import (
 	"database/sql"
 	"sync"
 	"tg_reader_bot/internal/config"
+
+	"github.com/gotd/td/tg"
 )
 
 type Container struct {
 	Config   *config.ConfigStructure
 	Database *sql.DB
+	Bot      *tg.Client
+	Client   *tg.Client
 }
 
 var (
@@ -30,4 +34,8 @@ func GetContainer() *Container {
 
 func GetDatabase() *sql.DB {
 	return GetContainer().Database
+}
+
+func GetConfig() *config.ConfigStructure {
+	return GetContainer().Config
 }

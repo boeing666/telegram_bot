@@ -5,18 +5,13 @@ import (
 	"os"
 	"os/signal"
 	"tg_reader_bot/internal/app"
+	"tg_reader_bot/internal/bot"
+	"tg_reader_bot/internal/client"
 	"tg_reader_bot/internal/config"
 	"tg_reader_bot/internal/database"
-	"tg_reader_bot/internal/session"
-	"tg_reader_bot/internal/telegram"
 )
 
 func main() {
-	err := session.Init()
-	if err != nil {
-		panic(err)
-	}
-
 	config, err := config.Init()
 	if err != nil {
 		panic(err)
@@ -30,10 +25,16 @@ func main() {
 	app := app.GetContainer()
 	app.Init(config, db)
 
-	ctx, cancel := signal.NotifyContext(context.Background(), os.Interrupt)
-	defer cancel()
+	context1, cancel1 := context.WithCancel(context.Background())
+	context2, cancel2 := context.WithCancel(context.Background())
 
-	if err := telegram.Run(ctx, config); err != nil {
-		panic(err)
-	}
+	go bot.Run(context1)
+	go client.Run(context2)
+
+	sig := make(chan os.Signal, 1)
+	signal.Notify(sig, os.Interrupt)
+	<-sig
+
+	cancel1()
+	cancel2()
 }

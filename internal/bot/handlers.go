@@ -8,11 +8,11 @@ import (
 func (b *Bot) handlePrivateMessage(msg events.MsgContext) error {
 	if msg.UserData != nil {
 		ok, err := b.stateHandler(msg)
-		if ok {
-			return nil
-		}
 		if err != nil {
 			return err
+		}
+		if ok {
+			return nil
 		}
 	}
 	return b.Dispatch(msg.GetText(), msg)

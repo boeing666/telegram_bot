@@ -10,10 +10,11 @@ import (
 )
 
 type ConfigStructure struct {
-	AppID      int    `json:"app_id"`
-	AppHash    string `json:"app_hash"`
-	APIToken   string `json:"api_token"`
-	DbSettings struct {
+	AppID       int    `json:"app_id"`
+	AppHash     string `json:"app_hash"`
+	APIToken    string `json:"api_token"`
+	PhoneNumber string `json:"phone_number"`
+	DbSettings  struct {
 		Host     string `json:"host"`
 		Username string `json:"username"`
 		Password string `json:"password"`

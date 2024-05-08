@@ -3,13 +3,23 @@ package bot
 import (
 	"context"
 	"fmt"
+	"os"
+	"path/filepath"
+	"tg_reader_bot/internal/app"
 	"tg_reader_bot/internal/cache"
 	"tg_reader_bot/internal/events"
 	"tg_reader_bot/internal/protobufs"
 	"time"
 
+	"github.com/cockroachdb/errors"
+	"github.com/gotd/contrib/middleware/floodwait"
+	"github.com/gotd/td/telegram"
 	"github.com/gotd/td/telegram/message"
+	"github.com/gotd/td/telegram/updates"
 	"github.com/gotd/td/tg"
+	"go.uber.org/zap"
+	"go.uber.org/zap/zapcore"
+	lj "gopkg.in/natefinch/lumberjack.v2"
 )
 
 type btnCallback func(buttonContext) error
@@ -29,7 +39,7 @@ type commandInfo struct {
 }
 
 type Bot struct {
-	Client        *tg.Client
+	Client        *telegram.Client
 	Sender        *message.Sender
 	startTime     uint64
 	cmdsCallbacks map[string]commandInfo
@@ -37,10 +47,10 @@ type Bot struct {
 	channelsCache cache.ChannelsManager
 }
 
-func Init(client *tg.Client) *Bot {
+func Init(client *telegram.Client) *Bot {
 	bot := &Bot{
 		Client:        client,
-		Sender:        message.NewSender(client),
+		Sender:        message.NewSender(client.API()),
 		startTime:     uint64(time.Now().Unix()),
 		cmdsCallbacks: make(map[string]commandInfo),
 		btnCallbacks:  make(map[protobufs.MessageID]btnCallback),
@@ -53,28 +63,121 @@ func Init(client *tg.Client) *Bot {
 	return bot
 }
 
-func (b *Bot) LoadUsersChannels() {
-	fmt.Println("Loading user channels.")
-	b.channelsCache.LoadUsersData()
-	fmt.Println("Loading completed.")
+func (b *Bot) ResolveChannels(ctx context.Context) {
+	for _, info := range b.channelsCache.Channels {
+		channel, err := GetChannelByName(b.API(), b.Sender, ctx, info.Name)
+		if err != nil {
+			fmt.Println("ResolveChannel ", info.Name, " err ", err)
+			continue
+		}
+		fmt.Println("Resolved ", info.Name)
+		info.Peer = channel.AsInputPeer()
+	}
 }
 
-func (b *Bot) Answer(user *tg.User) *message.RequestBuilder {
-	return b.Sender.To(user.AsInputPeer())
+func (b *Bot) API() *tg.Client {
+	return b.Client.API()
 }
 
-func (b *Bot) SetAnswerCallback(ctx context.Context, text string, queryID int64) error {
-	_, err := b.Client.MessagesSetBotCallbackAnswer(ctx, &tg.MessagesSetBotCallbackAnswerRequest{
-		QueryID: queryID,
-		Message: text,
+func botRun(ctx context.Context) error {
+	app := app.GetContainer()
+	config := app.Config
+
+	botDir := "bot"
+	if err := os.MkdirAll(botDir, 0700); err != nil {
+		return err
+	}
+
+	logFilePath := filepath.Join(botDir, "log.jsonl")
+	logWriter := zapcore.AddSync(&lj.Logger{
+		Filename:   logFilePath,
+		MaxBackups: 3,
+		MaxSize:    1, // megabytes
+		MaxAge:     7, // days
 	})
-	return err
+
+	logCore := zapcore.NewCore(
+		zapcore.NewJSONEncoder(zap.NewProductionEncoderConfig()),
+		logWriter,
+		zap.DebugLevel,
+	)
+	lg := zap.New(logCore)
+	defer func() { _ = lg.Sync() }()
+
+	dispatcher := tg.NewUpdateDispatcher()
+
+	updatesRecovery := updates.New(updates.Config{
+		Handler: dispatcher,
+		Logger:  lg.Named("bot.updates.recovery"),
+	})
+
+	waiter := floodwait.NewWaiter().WithCallback(func(ctx context.Context, wait floodwait.FloodWait) {
+		fmt.Println("Bot API FLOOD_WAIT. Will retry after", wait.Duration)
+	})
+
+	options := telegram.Options{
+		Logger:        lg,
+		UpdateHandler: updatesRecovery,
+		SessionStorage: &telegram.FileSessionStorage{
+			Path: filepath.Join(botDir, "session.json"),
+		},
+		Middlewares: []telegram.Middleware{
+			waiter,
+		},
+	}
+
+	client := telegram.NewClient(config.AppID, config.AppHash, options)
+
+	bot := Init(client)
+	bot.UpdateHandles(dispatcher)
+
+	api := bot.API()
+
+	return waiter.Run(ctx, func(ctx context.Context) error {
+		if err := client.Run(ctx, func(ctx context.Context) error {
+			status, err := client.Auth().Status(ctx)
+			if err != nil {
+				return err
+			}
+
+			/* Can be already authenticated if we have valid session in session storage. */
+			if !status.Authorized {
+				if _, err := client.Auth().Bot(ctx, config.APIToken); err != nil {
+					return errors.Wrap(err, "auth")
+				}
+			}
+
+			user, err := client.Self(ctx)
+			if err != nil {
+				return errors.Wrap(err, "call self")
+			}
+
+			fmt.Println("Bot username:", user.Username)
+
+			fmt.Println("Listening for updates. Interrupt (Ctrl+C) to stop.")
+			return updatesRecovery.Run(ctx, api, user.ID, updates.AuthOptions{
+				IsBot: user.Bot,
+				OnStart: func(ctx context.Context) {
+					bot.channelsCache.LoadUsersData()
+					bot.ResolveChannels(ctx)
+					go bot.ParseChannels(ctx)
+				},
+			})
+		}); err != nil {
+			return errors.Wrap(err, "run")
+		}
+		return nil
+	})
 }
 
-func (b *Bot) DeleteMessage(ctx context.Context, id int) error {
-	_, err := b.Client.MessagesDeleteMessages(ctx, &tg.MessagesDeleteMessagesRequest{
-		Revoke: true,
-		ID:     []int{id},
-	})
-	return err
+func Run(ctx context.Context) {
+	for {
+		select {
+		case <-ctx.Done():
+			fmt.Println("Bot stopped.")
+			return
+		default:
+			botRun(ctx)
+		}
+	}
 }

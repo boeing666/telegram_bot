@@ -8,22 +8,22 @@ import (
 func (cm *ChannelsManager) LoadUsersData() {
 	db := app.GetDatabase()
 
-	groupsRows, err := db.Query("SELECT `id`, `userid`, `groupid`, `name`, `title` FROM `groups`")
+	groupsRows, err := db.Query("SELECT `id`, `userid`, `groupid`, `lastmsgid`, `name`, `title` FROM `groups`")
 	if err != nil {
 		panic(err)
 	}
 	defer groupsRows.Close()
 
-	channelKeyWords := make(map[int64]*ChannelInfo)
+	channelKeyWords := make(map[int64]UserKeyWords)
 
 	for groupsRows.Next() {
 		var group rowGroups
-		if err := groupsRows.Scan(&group.ID, &group.UserID, &group.TelegramID, &group.Name, &group.Title); err != nil {
+		if err := groupsRows.Scan(&group.ID, &group.UserID, &group.ChannelID, &group.LastMsgID, &group.Name, &group.Title); err != nil {
 			panic(err)
 		}
 
-		channel, _ := cm.AddChannelToUser(group.UserID, group.ID, group.TelegramID, group.Name, group.Title, false)
-		channelKeyWords[group.ID] = channel
+		channel, _ := cm.AddChannelToUser(group.UserID, group.ID, group.ChannelID, group.LastMsgID, group.Name, group.Title, false)
+		channelKeyWords[group.ID] = UserKeyWords{userID: group.UserID, channel: channel}
 	}
 
 	keywordsRows, err := db.Query("SELECT `id`, `group_fk`, keyword FROM `keywords`")
@@ -39,18 +39,18 @@ func (cm *ChannelsManager) LoadUsersData() {
 			panic(err)
 		}
 
-		if channel, ok := channelKeyWords[keyword.GroupFK]; ok {
-			channel.AddKeyword(123, keyword.DatabaseID, keyword.Keyword, false)
+		if data, ok := channelKeyWords[keyword.GroupFK]; ok {
+			data.channel.AddKeyword(data.userID, keyword.DatabaseID, keyword.Keyword, false)
 		}
 	}
 }
 
-func (cm *ChannelsManager) AddChannelToUser(userID int64, databaseID int64, channelID int64, name, title string, addToDB bool) (*ChannelInfo, error) {
+func (cm *ChannelsManager) AddChannelToUser(userID int64, databaseID int64, channelID int64, lastmsgid int, name, title string, addToDB bool) (*ChannelInfo, error) {
 	if addToDB {
 		db := app.GetDatabase()
 
-		result, err := db.Exec("INSERT INTO `groups` (`id`, `userid`, `groupid`, `name`, `title`) VALUES (NULL, ?, ?, ?, ?)",
-			userID, channelID, name, title)
+		result, err := db.Exec("INSERT INTO `groups` (`id`, `userid`, `groupid`, `lastmsgid`, `name`, `title`) VALUES (NULL, ?, ?, ?, ?, ?)",
+			userID, channelID, lastmsgid, name, title)
 
 		if err != nil {
 			return nil, fmt.Errorf("error adding group to database: %v", err)
@@ -82,7 +82,7 @@ func (cm *ChannelsManager) AddChannelToUser(userID int64, databaseID int64, chan
 			TelegramID:    channelID,
 			Name:          name,
 			Title:         title,
-			LastParseTime: 0,
+			LastMsgID:     lastmsgid,
 		}
 		cm.Channels[channelID] = channel
 	}

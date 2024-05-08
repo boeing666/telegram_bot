@@ -1,6 +1,10 @@
 package cache
 
-import "sync"
+import (
+	"sync"
+
+	"github.com/gotd/td/tg"
+)
 
 const (
 	StateNone = iota
@@ -13,11 +17,12 @@ type ChannelKeyWords struct {
 }
 
 type ChannelInfo struct {
-	DatabaseID    int64
-	TelegramID    int64
-	Name          string
-	Title         string
-	LastParseTime uint64
+	DatabaseID int64
+	TelegramID int64
+	Name       string
+	Title      string
+	LastMsgID  int
+	Peer       tg.InputPeerClass
 
 	/* telegram user id -> keywords */
 	UsersKeyWords map[int64]*ChannelKeyWords
@@ -39,11 +44,12 @@ type ChannelsManager struct {
 }
 
 type rowGroups struct {
-	ID         int64
-	UserID     int64
-	TelegramID int64
-	Name       string
-	Title      string
+	ID        int64
+	UserID    int64
+	ChannelID int64
+	LastMsgID int
+	Name      string
+	Title     string
 }
 
 type rowKeywords struct {
@@ -53,5 +59,6 @@ type rowKeywords struct {
 }
 
 type UserKeyWords struct {
-	DatabaseID int64
+	userID  int64
+	channel *ChannelInfo
 }

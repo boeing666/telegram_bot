@@ -11,15 +11,15 @@ func (b *Bot) enterChannelName(msg events.MsgContext) error {
 
 	b.DeleteMessage(msg.Ctx, msg.Message.ID)
 
-	channel, err := b.getChannelByName(msg.Ctx, msg.GetText())
+	channel, err := GetChannelByName(b.API(), b.Sender, msg.Ctx, msg.GetText())
 	if err != nil {
 		b.Answer(msg.PeerUser).Text(msg.Ctx, "Ошибка при выполнении. Попробуйте позже.")
-		return b.showMainPage(msg.Ctx, msg.PeerUser, user)
+		return err
 	}
 
 	if user.HasChannelByID(channel.ID) {
 		b.Answer(msg.PeerUser).NoWebpage().Textf(msg.Ctx, "Канал [%s](%s) уже был добавлен.", channel.Title, msg.GetText())
-		return b.showMainPage(msg.Ctx, msg.PeerUser, user)
+		return err
 	}
 
 	channelName := channel.Username
@@ -27,11 +27,12 @@ func (b *Bot) enterChannelName(msg events.MsgContext) error {
 		channelName = channel.Usernames[0].Username
 	}
 
-	_, err = b.channelsCache.AddChannelToUser(user.TelegramID, 0, channel.ID, channelName, channel.Title, true)
+	channelInfo, err := b.channelsCache.AddChannelToUser(user.TelegramID, 0, channel.ID, 0, channelName, channel.Title, true)
 	if err != nil {
 		b.Answer(msg.PeerUser).Text(msg.Ctx, "Ошибка при выполнении. Попробуйте позже.")
-		return b.showMainPage(msg.Ctx, msg.PeerUser, user)
+		return err
 	}
+	channelInfo.Peer = channel.AsInputPeer()
 
 	b.Answer(msg.PeerUser).NoWebpage().Textf(msg.Ctx, "Канал [%s](%s) успешно добавлен.", channel.Title, msg.GetText())
 	return b.showChannelInfo(msg.Ctx, channel.ID, msg.PeerUser, user)

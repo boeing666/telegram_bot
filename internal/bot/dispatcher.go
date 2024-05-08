@@ -1,6 +1,8 @@
 package bot
 
-import "tg_reader_bot/internal/events"
+import (
+	"tg_reader_bot/internal/events"
+)
 
 func (b *Bot) addCommand(name string, desciption string, callback func(events.MsgContext) error) {
 	b.cmdsCallbacks[name] = commandInfo{desciption, callback}
