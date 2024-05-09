@@ -12,53 +12,37 @@ const (
 	WaitingKeyWord
 )
 
-type ChannelKeyWords struct {
+type PeerKeyWords struct {
 	Keywords map[int64]string
 }
 
-type ChannelInfo struct {
-	DatabaseID int64
+// Peer can be:
+// tg.InputPeerChat
+// tg.InputPeerChannel
+type PeerInfo struct {
 	TelegramID int64
+	DatabaseID int64
 	Name       string
 	Title      string
 	LastMsgID  int
 	Peer       tg.InputPeerClass
 
 	/* telegram user id -> keywords */
-	UsersKeyWords map[int64]*ChannelKeyWords
+	UsersKeyWords map[int64]*PeerKeyWords
 }
 
 type UserData struct {
-	TelegramID         int64
+	Peer               tg.InputPeerUser
 	State              uint32
 	ActiveMenuID       int
-	ActiveChannelID    int64
+	ActivePeerID       int64
 	SecretButtonClicks int
-	Channels           map[int64]*ChannelInfo
+
+	Channels map[int64]*PeerInfo
 }
 
-type ChannelsManager struct {
-	Channels map[int64]*ChannelInfo
-	Users    map[int64]*UserData
-	Mutex    sync.RWMutex
-}
-
-type rowGroups struct {
-	ID        int64
-	UserID    int64
-	ChannelID int64
-	LastMsgID int
-	Name      string
-	Title     string
-}
-
-type rowKeywords struct {
-	DatabaseID int64
-	GroupFK    int64
-	Keyword    string
-}
-
-type UserKeyWords struct {
-	userID  int64
-	channel *ChannelInfo
+type PeersManager struct {
+	Peers map[int64]*PeerInfo
+	Users map[int64]*UserData
+	Mutex sync.RWMutex
 }

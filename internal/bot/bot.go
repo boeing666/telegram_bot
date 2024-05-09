@@ -44,7 +44,7 @@ type Bot struct {
 	startTime     uint64
 	cmdsCallbacks map[string]commandInfo
 	btnCallbacks  map[protobufs.MessageID]btnCallback
-	channelsCache cache.ChannelsManager
+	channelsCache cache.PeersManager
 }
 
 func Init(client *telegram.Client) *Bot {
@@ -54,7 +54,7 @@ func Init(client *telegram.Client) *Bot {
 		startTime:     uint64(time.Now().Unix()),
 		cmdsCallbacks: make(map[string]commandInfo),
 		btnCallbacks:  make(map[protobufs.MessageID]btnCallback),
-		channelsCache: cache.ChannelsManager{Channels: make(map[int64]*cache.ChannelInfo), Users: make(map[int64]*cache.UserData)},
+		channelsCache: cache.PeersManager{Peers: make(map[int64]*cache.PeerInfo), Users: make(map[int64]*cache.UserData)},
 	}
 
 	bot.registerCommands()
@@ -64,7 +64,7 @@ func Init(client *telegram.Client) *Bot {
 }
 
 func (b *Bot) ResolveChannels(ctx context.Context) {
-	for _, info := range b.channelsCache.Channels {
+	for _, info := range b.channelsCache.Peers {
 		channel, err := GetChannelByName(b.API(), b.Sender, ctx, info.Name)
 		if err != nil {
 			fmt.Println("ResolveChannel ", info.Name, " err ", err)
@@ -99,7 +99,7 @@ func botRun(ctx context.Context) error {
 	logCore := zapcore.NewCore(
 		zapcore.NewJSONEncoder(zap.NewProductionEncoderConfig()),
 		logWriter,
-		zap.DebugLevel,
+		zap.InfoLevel,
 	)
 	lg := zap.New(logCore)
 	defer func() { _ = lg.Sync() }()

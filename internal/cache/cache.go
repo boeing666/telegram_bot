@@ -5,7 +5,27 @@ import (
 	"tg_reader_bot/internal/app"
 )
 
-func (cm *ChannelsManager) LoadUsersData() {
+type rowGroups struct {
+	id        int64
+	userID    int64
+	channelID int64
+	lastMsgID int
+	name      string
+	title     string
+}
+
+type rowKeywords struct {
+	databaseID int64
+	groupFK    int64
+	keyword    string
+}
+
+type userKeyWords struct {
+	userID  int64
+	channel *PeerInfo
+}
+
+func (cm *PeersManager) LoadUsersData() {
 	db := app.GetDatabase()
 
 	groupsRows, err := db.Query("SELECT `id`, `userid`, `groupid`, `lastmsgid`, `name`, `title` FROM `groups`")
@@ -14,16 +34,16 @@ func (cm *ChannelsManager) LoadUsersData() {
 	}
 	defer groupsRows.Close()
 
-	channelKeyWords := make(map[int64]UserKeyWords)
+	channelKeyWords := make(map[int64]userKeyWords)
 
 	for groupsRows.Next() {
 		var group rowGroups
-		if err := groupsRows.Scan(&group.ID, &group.UserID, &group.ChannelID, &group.LastMsgID, &group.Name, &group.Title); err != nil {
+		if err := groupsRows.Scan(&group.id, &group.userID, &group.channelID, &group.lastMsgID, &group.name, &group.title); err != nil {
 			panic(err)
 		}
 
-		channel, _ := cm.AddChannelToUser(group.UserID, group.ID, group.ChannelID, group.LastMsgID, group.Name, group.Title, false)
-		channelKeyWords[group.ID] = UserKeyWords{userID: group.UserID, channel: channel}
+		channel, _ := cm.AddChannelToUser(group.userID, group.id, group.channelID, group.lastMsgID, group.name, group.title, false)
+		channelKeyWords[group.id] = userKeyWords{userID: group.userID, channel: channel}
 	}
 
 	keywordsRows, err := db.Query("SELECT `id`, `group_fk`, keyword FROM `keywords`")
@@ -35,17 +55,17 @@ func (cm *ChannelsManager) LoadUsersData() {
 
 	for keywordsRows.Next() {
 		var keyword rowKeywords
-		if err := keywordsRows.Scan(&keyword.DatabaseID, &keyword.GroupFK, &keyword.Keyword); err != nil {
+		if err := keywordsRows.Scan(&keyword.databaseID, &keyword.groupFK, &keyword.keyword); err != nil {
 			panic(err)
 		}
 
-		if data, ok := channelKeyWords[keyword.GroupFK]; ok {
-			data.channel.AddKeyword(data.userID, keyword.DatabaseID, keyword.Keyword, false)
+		if data, ok := channelKeyWords[keyword.groupFK]; ok {
+			data.channel.AddKeyword(data.userID, keyword.databaseID, keyword.keyword, false)
 		}
 	}
 }
 
-func (cm *ChannelsManager) AddChannelToUser(userID int64, databaseID int64, channelID int64, lastmsgid int, name, title string, addToDB bool) (*ChannelInfo, error) {
+func (cm *PeersManager) AddChannelToUser(userID int64, databaseID int64, channelID int64, lastmsgid int, name, title string, addToDB bool) (*PeerInfo, error) {
 	if addToDB {
 		db := app.GetDatabase()
 
@@ -68,23 +88,23 @@ func (cm *ChannelsManager) AddChannelToUser(userID int64, databaseID int64, chan
 	user, ok := cm.Users[userID]
 	if !ok {
 		user = &UserData{
-			TelegramID: userID,
-			Channels:   make(map[int64]*ChannelInfo),
+			// TelegramID: userID, TODO
+			Channels: make(map[int64]*PeerInfo),
 		}
 		cm.Users[userID] = user
 	}
 
-	channel, ok := cm.Channels[channelID]
+	channel, ok := cm.Peers[channelID]
 	if !ok {
-		channel = &ChannelInfo{
-			UsersKeyWords: make(map[int64]*ChannelKeyWords),
+		channel = &PeerInfo{
+			UsersKeyWords: make(map[int64]*PeerKeyWords),
 			DatabaseID:    databaseID,
-			TelegramID:    channelID,
-			Name:          name,
-			Title:         title,
-			LastMsgID:     lastmsgid,
+			// TelegramID:    channelID, TODO
+			Name:      name,
+			Title:     title,
+			LastMsgID: lastmsgid,
 		}
-		cm.Channels[channelID] = channel
+		cm.Peers[channelID] = channel
 	}
 
 	user.Channels[channelID] = channel
@@ -92,7 +112,7 @@ func (cm *ChannelsManager) AddChannelToUser(userID int64, databaseID int64, chan
 	return channel, nil
 }
 
-func (cm *ChannelsManager) RemoveChannelFromUser(userID int64, channelID int64, addToDB bool) error {
+func (cm *PeersManager) RemoveChannelFromUser(userID int64, channelID int64, addToDB bool) error {
 	if addToDB {
 		db := app.GetDatabase()
 		_, err := db.Exec("DELETE FROM `groups` WHERE `userid` = ? AND `groupid` = ?", userID, channelID)
@@ -108,14 +128,14 @@ func (cm *ChannelsManager) RemoveChannelFromUser(userID int64, channelID int64, 
 		delete(user.Channels, channelID)
 	}
 
-	if channel, ok := cm.Channels[channelID]; ok {
+	if channel, ok := cm.Peers[channelID]; ok {
 		delete(channel.UsersKeyWords, userID)
 	}
 
 	return nil
 }
 
-func (channel *ChannelInfo) AddKeyword(userID int64, keywordID int64, keyword string, addToDB bool) error {
+func (channel *PeerInfo) AddKeyword(userID int64, keywordID int64, keyword string, addToDB bool) error {
 	if addToDB {
 		db := app.GetDatabase()
 
@@ -134,7 +154,7 @@ func (channel *ChannelInfo) AddKeyword(userID int64, keywordID int64, keyword st
 	if ok {
 		usersKeywords.Keywords[keywordID] = keyword
 	} else {
-		usersKeywords = &ChannelKeyWords{Keywords: make(map[int64]string)}
+		usersKeywords = &PeerKeyWords{Keywords: make(map[int64]string)}
 		usersKeywords.Keywords[keywordID] = keyword
 		channel.UsersKeyWords[userID] = usersKeywords
 	}
@@ -142,7 +162,7 @@ func (channel *ChannelInfo) AddKeyword(userID int64, keywordID int64, keyword st
 	return nil
 }
 
-func (channel *ChannelInfo) RemoveKeyword(userID int64, keywordID int64, addToDB bool) error {
+func (channel *PeerInfo) RemoveKeyword(userID int64, keywordID int64, addToDB bool) error {
 	if addToDB {
 		db := app.GetDatabase()
 
@@ -159,26 +179,26 @@ func (channel *ChannelInfo) RemoveKeyword(userID int64, keywordID int64, addToDB
 	return nil
 }
 
-func (cm *ChannelsManager) GetUserData(userID int64, create bool) *UserData {
+func (cm *PeersManager) GetUserData(userID int64, create bool) *UserData {
 	if user, ok := cm.Users[userID]; ok {
 		return user
 	} else if create {
-		user := &UserData{TelegramID: userID, Channels: map[int64]*ChannelInfo{}}
+		user := &UserData{Channels: map[int64]*PeerInfo{}} // TODO TelegramID: userID,
 		cm.Users[userID] = user
 		return user
 	}
 	return nil
 }
 
-func (cm *ChannelInfo) GetUserKeyWords(userID int64) *map[int64]string {
-	if user, ok := cm.UsersKeyWords[userID]; ok {
+func (channel *PeerInfo) GetUserKeyWords(userID int64) *map[int64]string {
+	if user, ok := channel.UsersKeyWords[userID]; ok {
 		return &user.Keywords
 	}
 	return nil
 }
 
-func (cm *ChannelInfo) GetUserKeyWordsCount(userID int64) int {
-	keyWords := cm.GetUserKeyWords(userID)
+func (channel *PeerInfo) GetUserKeyWordsCount(userID int64) int {
+	keyWords := channel.GetUserKeyWords(userID)
 	if keyWords != nil {
 		return len(*keyWords)
 	}
@@ -186,11 +206,19 @@ func (cm *ChannelInfo) GetUserKeyWordsCount(userID int64) int {
 	return 0
 }
 
-func (user *UserData) HasChannelByID(telegramID int64) bool {
-	_, ok := user.Channels[telegramID]
+func (user *UserData) HasChannelByID(ID int64) bool {
+	_, ok := user.Channels[ID]
 	return ok
 }
 
-func (user *UserData) GetActiveChannel() *ChannelInfo {
-	return user.Channels[user.ActiveChannelID]
+func (user *UserData) GetActivePeerID() int64 {
+	return user.ActivePeerID
+}
+
+func (user *UserData) GetActiveChannel() *PeerInfo {
+	return user.Channels[user.GetActivePeerID()]
+}
+
+func (user *UserData) GetID() int64 {
+	return user.Peer.UserID
 }

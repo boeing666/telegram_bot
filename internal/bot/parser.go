@@ -2,16 +2,10 @@ package bot
 
 import (
 	"context"
-	"fmt"
-	"tg_reader_bot/internal/app"
-	"time"
-
-	"github.com/gotd/td/telegram/message"
-	"github.com/gotd/td/tg"
 )
 
 func (bot *Bot) ParseChannels(ctx context.Context) {
-	for {
+	/*for {
 		app := app.GetContainer()
 		if app.Client != nil {
 			sender := message.NewSender(app.Client)
@@ -35,16 +29,9 @@ func (bot *Bot) ParseChannels(ctx context.Context) {
 				}
 
 				fmt.Println(msgsClass)
-
-				/*msgs, ok := msgsClass.(*tg.MessagesChannelMessages)
-				if !ok {
-					fmt.Println("Failed to cast messages")
-					continue
-				}*/
 			}
 			cache.Mutex.Unlock()
 		}
 		time.Sleep(30 * time.Second)
-	}
-
+	} */
 }

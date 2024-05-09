@@ -4,15 +4,13 @@ import (
 	"database/sql"
 	"sync"
 	"tg_reader_bot/internal/config"
-
-	"github.com/gotd/td/tg"
+	"tg_reader_bot/internal/telegram"
 )
 
 type Container struct {
 	Config   *config.ConfigStructure
 	Database *sql.DB
-	Bot      *tg.Client
-	Client   *tg.Client
+	Client   *telegram.TGClient
 }
 
 var (
@@ -38,4 +36,8 @@ func GetDatabase() *sql.DB {
 
 func GetConfig() *config.ConfigStructure {
 	return GetContainer().Config
+}
+
+func GetClient() *telegram.TGClient {
+	return GetContainer().Client
 }

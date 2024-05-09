@@ -9,7 +9,7 @@ func (b *Bot) enterChannelName(msg events.MsgContext) error {
 	user := msg.UserData
 	user.State = cache.StateNone
 
-	b.DeleteMessage(msg.Ctx, msg.Message.ID)
+	b.Sender.Delete().Messages(msg.Ctx, msg.Message.ID)
 
 	channel, err := GetChannelByName(b.API(), b.Sender, msg.Ctx, msg.GetText())
 	if err != nil {
@@ -27,7 +27,7 @@ func (b *Bot) enterChannelName(msg events.MsgContext) error {
 		channelName = channel.Usernames[0].Username
 	}
 
-	channelInfo, err := b.channelsCache.AddChannelToUser(user.TelegramID, 0, channel.ID, 0, channelName, channel.Title, true)
+	channelInfo, err := b.channelsCache.AddChannelToUser(user.GetID(), 0, channel.ID, 0, channelName, channel.Title, true)
 	if err != nil {
 		b.Answer(msg.PeerUser).Text(msg.Ctx, "Ошибка при выполнении. Попробуйте позже.")
 		return err
@@ -42,7 +42,7 @@ func (b *Bot) enterKeyWord(msg events.MsgContext) error {
 	user := msg.UserData
 	user.State = cache.StateNone
 
-	b.DeleteMessage(msg.Ctx, msg.Message.ID)
+	b.Sender.Delete().Messages(msg.Ctx, msg.Message.ID)
 
 	channel := user.GetActiveChannel()
 	if channel == nil {
@@ -50,12 +50,12 @@ func (b *Bot) enterKeyWord(msg events.MsgContext) error {
 		return b.showMainPage(msg.Ctx, msg.PeerUser, user)
 	}
 
-	err := channel.AddKeyword(user.TelegramID, 0, msg.GetText(), true)
+	err := channel.AddKeyword(user.GetID(), 0, msg.GetText(), true)
 	if err != nil {
 		return err
 	}
 
-	return b.showChannelInfo(msg.Ctx, channel.TelegramID, msg.PeerUser, user)
+	return b.showChannelInfo(msg.Ctx, user.GetActivePeerID(), msg.PeerUser, user)
 }
 
 func (b *Bot) stateHandler(msg events.MsgContext) (bool, error) {

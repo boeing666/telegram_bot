@@ -21,14 +21,6 @@ func (b *Bot) SetAnswerCallback(ctx context.Context, text string, queryID int64)
 	return err
 }
 
-func (b *Bot) DeleteMessage(ctx context.Context, id int) error {
-	_, err := b.API().MessagesDeleteMessages(ctx, &tg.MessagesDeleteMessagesRequest{
-		Revoke: true,
-		ID:     []int{id},
-	})
-	return err
-}
-
 func GetChannelByName(api *tg.Client, sender *message.Sender, ctx context.Context, name string) (*tg.Channel, error) {
 	otherPeer, err := sender.Resolve(name).AsInputPeer(ctx)
 	if err != nil {

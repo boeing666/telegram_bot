@@ -8,6 +8,8 @@ import (
 	"tg_reader_bot/internal/app"
 	"tg_reader_bot/internal/events"
 
+	tgt "tg_reader_bot/internal/telegram"
+
 	"github.com/gotd/contrib/middleware/floodwait"
 	"github.com/gotd/td/telegram"
 	"github.com/gotd/td/telegram/auth"
@@ -39,7 +41,7 @@ func clientRun(ctx context.Context) error {
 	logCore := zapcore.NewCore(
 		zapcore.NewJSONEncoder(zap.NewProductionEncoderConfig()),
 		logWriter,
-		zap.DebugLevel,
+		zap.InfoLevel,
 	)
 	lg := zap.New(logCore)
 	defer func() { _ = lg.Sync() }()
@@ -67,7 +69,7 @@ func clientRun(ctx context.Context) error {
 	}
 
 	client := telegram.NewClient(config.AppID, config.AppHash, options)
-	app.Client = client.API()
+	app.Client = tgt.InitTGClient(client)
 
 	flow := auth.NewFlow(
 		events.Auth{PhoneNumber: config.PhoneNumber},
