@@ -38,9 +38,10 @@ func Init() (*ConfigStructure, error) {
 
 func (config *ConfigStructure) GetDatabaseQuery() string {
 	query := url.URL{
-		User: url.UserPassword(config.DbSettings.Username, config.DbSettings.Password),
-		Host: fmt.Sprintf("tcp(%s)", config.DbSettings.Host),
-		Path: config.DbSettings.Database,
+		User:     url.UserPassword(config.DbSettings.Username, config.DbSettings.Password),
+		Host:     fmt.Sprintf("tcp(%s)", config.DbSettings.Host),
+		Path:     config.DbSettings.Database,
+		RawQuery: "charset=utf8mb4&parseTime=True",
 	}
 	return query.String()[2:]
 }

@@ -21,6 +21,14 @@ func (b *Bot) SetAnswerCallback(ctx context.Context, text string, queryID int64)
 	return err
 }
 
+func (b *Bot) DeleteMessage(ctx context.Context, id int) error {
+	_, err := b.API().MessagesDeleteMessages(ctx, &tg.MessagesDeleteMessagesRequest{
+		Revoke: true,
+		ID:     []int{id},
+	})
+	return err
+}
+
 func GetChannelByName(api *tg.Client, sender *message.Sender, ctx context.Context, name string) (*tg.Channel, error) {
 	otherPeer, err := sender.Resolve(name).AsInputPeer(ctx)
 	if err != nil {
@@ -46,7 +54,9 @@ func GetChannelByName(api *tg.Client, sender *message.Sender, ctx context.Contex
 		}
 
 		return chats[0].(*tg.Channel), nil
+	//case *tg.InputPeerChat:
+	//api.MessagesGetFullChat(ctx)
 	default:
-		return nil, fmt.Errorf("it isn't channel")
+		return nil, fmt.Errorf("it isn't channel or chat")
 	}
 }

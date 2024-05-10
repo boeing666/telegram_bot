@@ -2,7 +2,6 @@ package bot
 
 import (
 	"context"
-	"fmt"
 	"tg_reader_bot/internal/events"
 	"tg_reader_bot/internal/protobufs"
 
@@ -42,9 +41,6 @@ func (b *Bot) onNewChannelMessage(ctx context.Context, entities tg.Entities, upd
 
 /* listen a messages sended to bot, it can be pm or chat */
 func (b *Bot) onNewMessage(ctx context.Context, entities tg.Entities, update *tg.UpdateNewMessage) error {
-	fmt.Println("onNewMessage", update)
-	fmt.Println("entities", entities)
-
 	m, ok := update.Message.(*tg.Message)
 	if !ok || m.Out {
 		return nil
@@ -62,7 +58,7 @@ func (b *Bot) onNewMessage(ctx context.Context, entities tg.Entities, update *tg
 		peerUser := m.PeerID.(*tg.PeerUser)
 		msg.PeerUser, ok = entities.Users[peerUser.UserID]
 		if ok {
-			msg.UserData = b.channelsCache.GetUserData(peerUser.UserID, false)
+			msg.UserData = b.peersCache.GetUserData(msg.PeerUser, false)
 			return b.handlePrivateMessage(msg)
 		}
 	case *tg.PeerChat: // if msg received in chat
@@ -104,8 +100,8 @@ func (b *Bot) botCallbackQuery(ctx context.Context, entities tg.Entities, update
 		return nil
 	}
 
-	userData := b.channelsCache.GetUserData(user.ID, true)
-	userData.ActiveMenuID = update.MsgID
+	userData := b.peersCache.GetUserData(user, true)
+	userData.ActiveMessageID = update.MsgID
 
 	msg := buttonContext{Ctx: ctx, Entities: entities, Update: update, User: user, UserData: userData, Data: message.Msg}
 	if callback, ok := b.btnCallbacks[message.Msgid]; ok {

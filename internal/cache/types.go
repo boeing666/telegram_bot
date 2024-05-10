@@ -2,47 +2,50 @@ package cache
 
 import (
 	"sync"
-
-	"github.com/gotd/td/tg"
 )
 
 const (
 	StateNone = iota
-	WaitingChannelName
+	WaitingPeerName
 	WaitingKeyWord
 )
 
 type PeerKeyWords struct {
+	/* keyword id -> word */
 	Keywords map[int64]string
 }
 
-// Peer can be:
-// tg.InputPeerChat
-// tg.InputPeerChannel
-type PeerInfo struct {
+type PeerData struct {
 	TelegramID int64
+	AccessHash int64
+
 	DatabaseID int64
-	Name       string
+	UserName   string
 	Title      string
 	LastMsgID  int
-	Peer       tg.InputPeerClass
+	IsChannel  bool
 
 	/* telegram user id -> keywords */
 	UsersKeyWords map[int64]*PeerKeyWords
 }
 
 type UserData struct {
-	Peer               tg.InputPeerUser
+	DatabaseID         int64
+	TelegramID         int64
+	AccessHash         int64
 	State              uint32
-	ActiveMenuID       int
+	ActiveMessageID    int
 	ActivePeerID       int64
 	SecretButtonClicks int
 
-	Channels map[int64]*PeerInfo
+	/* telegram peer id */
+	Peers map[int64]*PeerData
 }
 
 type PeersManager struct {
-	Peers map[int64]*PeerInfo
+	/* telegram peer id */
+	Peers map[int64]*PeerData
 	Users map[int64]*UserData
+
 	Mutex sync.RWMutex
 }

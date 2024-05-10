@@ -1,15 +1,16 @@
 package app
 
 import (
-	"database/sql"
 	"sync"
 	"tg_reader_bot/internal/config"
 	"tg_reader_bot/internal/telegram"
+
+	"gorm.io/gorm"
 )
 
 type Container struct {
 	Config   *config.ConfigStructure
-	Database *sql.DB
+	Database *gorm.DB
 	Client   *telegram.TGClient
 }
 
@@ -18,7 +19,7 @@ var (
 	once      sync.Once
 )
 
-func (c *Container) Init(config *config.ConfigStructure, database *sql.DB) {
+func (c *Container) Init(config *config.ConfigStructure, database *gorm.DB) {
 	container.Config = config
 	container.Database = database
 }
@@ -30,7 +31,7 @@ func GetContainer() *Container {
 	return container
 }
 
-func GetDatabase() *sql.DB {
+func GetDatabase() *gorm.DB {
 	return GetContainer().Database
 }
 

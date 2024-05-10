@@ -1,67 +1,64 @@
 package bot
 
 import (
+	"tg_reader_bot/internal/app"
 	"tg_reader_bot/internal/cache"
 	"tg_reader_bot/internal/events"
 )
 
-func (b *Bot) enterChannelName(msg events.MsgContext) error {
+func (b *Bot) enterPeerName(msg events.MsgContext) error {
+	client := app.GetClient()
+
 	user := msg.UserData
 	user.State = cache.StateNone
 
-	b.Sender.Delete().Messages(msg.Ctx, msg.Message.ID)
+	b.DeleteMessage(msg.Ctx, msg.Message.ID)
 
-	channel, err := GetChannelByName(b.API(), b.Sender, msg.Ctx, msg.GetText())
+	peer, err := GetChannelByName(client.Client.API(), client.Sender, msg.Ctx, msg.GetText())
 	if err != nil {
 		b.Answer(msg.PeerUser).Text(msg.Ctx, "Ошибка при выполнении. Попробуйте позже.")
 		return err
 	}
 
-	if user.HasChannelByID(channel.ID) {
-		b.Answer(msg.PeerUser).NoWebpage().Textf(msg.Ctx, "Канал [%s](%s) уже был добавлен.", channel.Title, msg.GetText())
+	if user.HasPeerByID(peer.ID) {
+		b.Answer(msg.PeerUser).NoWebpage().Textf(msg.Ctx, "Канал [%s](%s) уже был добавлен.", peer.Title, msg.GetText())
 		return err
 	}
 
-	channelName := channel.Username
-	if len(channelName) == 0 {
-		channelName = channel.Usernames[0].Username
-	}
-
-	channelInfo, err := b.channelsCache.AddChannelToUser(user.GetID(), 0, channel.ID, 0, channelName, channel.Title, true)
+	err = b.peersCache.AddPeerToUser(msg.UserData, peer)
 	if err != nil {
 		b.Answer(msg.PeerUser).Text(msg.Ctx, "Ошибка при выполнении. Попробуйте позже.")
 		return err
 	}
-	channelInfo.Peer = channel.AsInputPeer()
 
-	b.Answer(msg.PeerUser).NoWebpage().Textf(msg.Ctx, "Канал [%s](%s) успешно добавлен.", channel.Title, msg.GetText())
-	return b.showChannelInfo(msg.Ctx, channel.ID, msg.PeerUser, user)
+	b.Answer(msg.PeerUser).NoWebpage().Textf(msg.Ctx, "Канал [%s](%s) успешно добавлен.", peer.Title, msg.GetText())
+	return b.showPeerInfo(msg.Ctx, peer.ID, msg.PeerUser, user)
 }
 
 func (b *Bot) enterKeyWord(msg events.MsgContext) error {
 	user := msg.UserData
 	user.State = cache.StateNone
 
-	b.Sender.Delete().Messages(msg.Ctx, msg.Message.ID)
+	b.DeleteMessage(msg.Ctx, msg.Message.ID)
 
-	channel := user.GetActiveChannel()
-	if channel == nil {
+	peer := user.GetActivePeer()
+	if peer == nil {
 		b.Answer(msg.PeerUser).Textf(msg.Ctx, "Ошибка при получении канала.")
 		return b.showMainPage(msg.Ctx, msg.PeerUser, user)
 	}
 
-	err := channel.AddKeyword(user.GetID(), 0, msg.GetText(), true)
+	err := peer.AddKeyword(user, msg.GetText())
 	if err != nil {
 		return err
 	}
 
-	return b.showChannelInfo(msg.Ctx, user.GetActivePeerID(), msg.PeerUser, user)
+	return b.showPeerInfo(msg.Ctx, user.GetActivePeerID(), msg.PeerUser, user)
 }
 
 func (b *Bot) stateHandler(msg events.MsgContext) (bool, error) {
 	switch msg.UserData.State {
-	case cache.WaitingChannelName:
-		return true, b.enterChannelName(msg)
+	case cache.WaitingPeerName:
+		return true, b.enterPeerName(msg)
 	case cache.WaitingKeyWord:
 		return true, b.enterKeyWord(msg)
 	}

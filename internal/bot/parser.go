@@ -2,16 +2,17 @@ package bot
 
 import (
 	"context"
+	"tg_reader_bot/internal/app"
+	"time"
 )
 
 func (bot *Bot) ParseChannels(ctx context.Context) {
-	/*for {
+	for {
 		app := app.GetContainer()
 		if app.Client != nil {
-			sender := message.NewSender(app.Client)
-			cache := &bot.channelsCache
+			cache := &bot.peersCache
 			cache.Mutex.Lock()
-			for _, channelInfo := range cache.Channels {
+			/* for _, channelInfo := range cache.Channels {
 				channel, err := GetChannelByName(app.Client, sender, ctx, channelInfo.Name)
 				if err != nil {
 					fmt.Println("GetChannelByName err", err)
@@ -29,9 +30,9 @@ func (bot *Bot) ParseChannels(ctx context.Context) {
 				}
 
 				fmt.Println(msgsClass)
-			}
+			} */
 			cache.Mutex.Unlock()
 		}
 		time.Sleep(30 * time.Second)
-	} */
+	}
 }

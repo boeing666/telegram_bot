@@ -44,7 +44,7 @@ type Bot struct {
 	startTime     uint64
 	cmdsCallbacks map[string]commandInfo
 	btnCallbacks  map[protobufs.MessageID]btnCallback
-	channelsCache cache.PeersManager
+	peersCache    cache.PeersManager
 }
 
 func Init(client *telegram.Client) *Bot {
@@ -54,25 +54,13 @@ func Init(client *telegram.Client) *Bot {
 		startTime:     uint64(time.Now().Unix()),
 		cmdsCallbacks: make(map[string]commandInfo),
 		btnCallbacks:  make(map[protobufs.MessageID]btnCallback),
-		channelsCache: cache.PeersManager{Peers: make(map[int64]*cache.PeerInfo), Users: make(map[int64]*cache.UserData)},
+		peersCache:    cache.PeersManager{Peers: make(map[int64]*cache.PeerData), Users: make(map[int64]*cache.UserData)},
 	}
 
 	bot.registerCommands()
 	bot.registerQueryCallbacks()
 
 	return bot
-}
-
-func (b *Bot) ResolveChannels(ctx context.Context) {
-	for _, info := range b.channelsCache.Peers {
-		channel, err := GetChannelByName(b.API(), b.Sender, ctx, info.Name)
-		if err != nil {
-			fmt.Println("ResolveChannel ", info.Name, " err ", err)
-			continue
-		}
-		fmt.Println("Resolved ", info.Name)
-		info.Peer = channel.AsInputPeer()
-	}
 }
 
 func (b *Bot) API() *tg.Client {
@@ -158,8 +146,7 @@ func botRun(ctx context.Context) error {
 			return updatesRecovery.Run(ctx, api, user.ID, updates.AuthOptions{
 				IsBot: user.Bot,
 				OnStart: func(ctx context.Context) {
-					bot.channelsCache.LoadUsersData()
-					bot.ResolveChannels(ctx)
+					bot.peersCache.LoadUsersData()
 					go bot.ParseChannels(ctx)
 				},
 			})

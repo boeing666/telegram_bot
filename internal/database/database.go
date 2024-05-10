@@ -1,15 +1,20 @@
 package database
 
 import (
-	"database/sql"
+	"tg_reader_bot/internal/models"
 
-	_ "github.com/go-sql-driver/mysql"
+	"gorm.io/driver/mysql"
+	"gorm.io/gorm"
 )
 
-func Init(query string) (*sql.DB, error) {
-	db, err := sql.Open("mysql", query)
-	if err != nil {
-		return nil, err
-	}
-	return db, nil
+func Init(query string) (*gorm.DB, error) {
+	db, err := gorm.Open(mysql.Open(query), &gorm.Config{})
+
+	db.AutoMigrate(
+		&models.User{},
+		&models.Peer{},
+		&models.KeyWords{},
+	)
+
+	return db, err
 }

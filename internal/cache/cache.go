@@ -3,202 +3,244 @@ package cache
 import (
 	"fmt"
 	"tg_reader_bot/internal/app"
+	"tg_reader_bot/internal/models"
+
+	"github.com/gotd/td/tg"
 )
 
-type rowGroups struct {
-	id        int64
-	userID    int64
-	channelID int64
-	lastMsgID int
-	name      string
-	title     string
-}
-
-type rowKeywords struct {
-	databaseID int64
-	groupFK    int64
-	keyword    string
-}
-
 type userKeyWords struct {
-	userID  int64
-	channel *PeerInfo
+	userID int64
+	peer   *PeerData
 }
 
-func (cm *PeersManager) LoadUsersData() {
+func (manager *PeersManager) LoadUsersData() {
 	db := app.GetDatabase()
 
-	groupsRows, err := db.Query("SELECT `id`, `userid`, `groupid`, `lastmsgid`, `name`, `title` FROM `groups`")
-	if err != nil {
-		panic(err)
-	}
-	defer groupsRows.Close()
-
-	channelKeyWords := make(map[int64]userKeyWords)
-
-	for groupsRows.Next() {
-		var group rowGroups
-		if err := groupsRows.Scan(&group.id, &group.userID, &group.channelID, &group.lastMsgID, &group.name, &group.title); err != nil {
-			panic(err)
-		}
-
-		channel, _ := cm.AddChannelToUser(group.userID, group.id, group.channelID, group.lastMsgID, group.name, group.title, false)
-		channelKeyWords[group.id] = userKeyWords{userID: group.userID, channel: channel}
+	var users []models.User
+	db.Find(&users)
+	for _, user := range users {
+		manager.addToCacheUser(&user)
 	}
 
-	keywordsRows, err := db.Query("SELECT `id`, `group_fk`, keyword FROM `keywords`")
-	if err != nil {
-		panic(err)
+	var peers []models.Peer
+	db.Preload("Users").Find(&peers)
+	for _, peer := range peers {
+		db.Model(&peer).Association("Users").Find(&peer.Users)
+		manager.addToCachePeers(&peer)
 	}
 
-	defer keywordsRows.Close()
-
-	for keywordsRows.Next() {
-		var keyword rowKeywords
-		if err := keywordsRows.Scan(&keyword.databaseID, &keyword.groupFK, &keyword.keyword); err != nil {
-			panic(err)
-		}
-
-		if data, ok := channelKeyWords[keyword.groupFK]; ok {
-			data.channel.AddKeyword(data.userID, keyword.databaseID, keyword.keyword, false)
-		}
+	var keyWords []models.KeyWords
+	db.Preload("Peer.User").Find(&keyWords)
+	for _, keyWord := range keyWords {
+		manager.addToCacheKeyWords(&keyWord)
 	}
+
+	fmt.Println("Cache loaded")
 }
 
-func (cm *PeersManager) AddChannelToUser(userID int64, databaseID int64, channelID int64, lastmsgid int, name, title string, addToDB bool) (*PeerInfo, error) {
-	if addToDB {
-		db := app.GetDatabase()
+func (manager *PeersManager) createUser(username string, telegramID int64, accessHash int64) *UserData {
+	db := app.GetDatabase()
 
-		result, err := db.Exec("INSERT INTO `groups` (`id`, `userid`, `groupid`, `lastmsgid`, `name`, `title`) VALUES (NULL, ?, ?, ?, ?, ?)",
-			userID, channelID, lastmsgid, name, title)
-
-		if err != nil {
-			return nil, fmt.Errorf("error adding group to database: %v", err)
-		}
-
-		databaseID, err = result.LastInsertId()
-		if err != nil {
-			return nil, fmt.Errorf("error get insert channel id: %v", err)
-		}
-
-		cm.Mutex.Lock()
-		defer cm.Mutex.Unlock()
+	assignData := models.User{
+		UserName:   username,
+		TelegramID: telegramID,
+		AccessHash: accessHash,
 	}
 
-	user, ok := cm.Users[userID]
-	if !ok {
-		user = &UserData{
-			// TelegramID: userID, TODO
-			Channels: make(map[int64]*PeerInfo),
-		}
-		cm.Users[userID] = user
+	var dbuser models.User
+	db.Where(models.User{TelegramID: telegramID}).Assign(assignData).FirstOrCreate(&dbuser)
+
+	user := &UserData{
+		DatabaseID: dbuser.ID,
+		TelegramID: telegramID,
+		AccessHash: accessHash,
+		Peers:      make(map[int64]*PeerData),
 	}
+	manager.Users[telegramID] = user
 
-	channel, ok := cm.Peers[channelID]
-	if !ok {
-		channel = &PeerInfo{
-			UsersKeyWords: make(map[int64]*PeerKeyWords),
-			DatabaseID:    databaseID,
-			// TelegramID:    channelID, TODO
-			Name:      name,
-			Title:     title,
-			LastMsgID: lastmsgid,
-		}
-		cm.Peers[channelID] = channel
-	}
-
-	user.Channels[channelID] = channel
-
-	return channel, nil
+	return user
 }
 
-func (cm *PeersManager) RemoveChannelFromUser(userID int64, channelID int64, addToDB bool) error {
-	if addToDB {
-		db := app.GetDatabase()
-		_, err := db.Exec("DELETE FROM `groups` WHERE `userid` = ? AND `groupid` = ?", userID, channelID)
-		if err != nil {
-			return fmt.Errorf("error remove group: %v", err)
+func (manger *PeersManager) AddPeerToUser(user *UserData, tgpeer *tg.Channel) error {
+	db := app.GetDatabase()
+
+	var peerInfo models.Peer
+
+	peerName := tgpeer.Username
+	if len(peerName) == 0 {
+		peerName = tgpeer.Usernames[0].Username
+	}
+
+	peerCache, peerInCache := manger.Peers[tgpeer.ID]
+	if !peerInCache {
+		peerInfo = models.Peer{
+			UserName:   peerName,
+			Title:      tgpeer.Title,
+			TelegramID: tgpeer.ID,
+			AccessHash: tgpeer.AccessHash,
 		}
-
-		cm.Mutex.Lock()
-		defer cm.Mutex.Unlock()
-	}
-
-	if user, ok := cm.Users[userID]; ok {
-		delete(user.Channels, channelID)
-	}
-
-	if channel, ok := cm.Peers[channelID]; ok {
-		delete(channel.UsersKeyWords, userID)
-	}
-
-	return nil
-}
-
-func (channel *PeerInfo) AddKeyword(userID int64, keywordID int64, keyword string, addToDB bool) error {
-	if addToDB {
-		db := app.GetDatabase()
-
-		result, err := db.Exec("INSERT INTO `keywords` (`id`, `group_fk`, `keyword`) VALUES (NULL, ?, ?)", channel.DatabaseID, keyword)
-		if err != nil {
-			return fmt.Errorf("error adding keyword: %v", err)
-		}
-
-		keywordID, err = result.LastInsertId()
-		if err != nil {
+		if err := db.Create(&peerInfo).Error; err != nil {
 			return err
 		}
+	} else {
+		peerInfo = models.Peer{ID: peerCache.DatabaseID}
 	}
 
-	usersKeywords, ok := channel.UsersKeyWords[userID]
-	if ok {
-		usersKeywords.Keywords[keywordID] = keyword
-	} else {
-		usersKeywords = &PeerKeyWords{Keywords: make(map[int64]string)}
-		usersKeywords.Keywords[keywordID] = keyword
-		channel.UsersKeyWords[userID] = usersKeywords
+	manger.Mutex.Lock()
+
+	if !peerInCache {
+		peerCache = manger.addToCachePeers(&peerInfo)
+	}
+
+	userCache := manger.Users[user.TelegramID]
+
+	_, userHavePeer := userCache.Peers[tgpeer.ID]
+	if !userHavePeer {
+		userCache.Peers[tgpeer.ID] = peerCache
+	}
+
+	manger.Mutex.Unlock()
+
+	if !userHavePeer {
+		db.Model(&models.User{ID: userCache.DatabaseID}).Association("Peers").Append(&peerInfo)
 	}
 
 	return nil
 }
 
-func (channel *PeerInfo) RemoveKeyword(userID int64, keywordID int64, addToDB bool) error {
-	if addToDB {
-		db := app.GetDatabase()
+func (manager *PeersManager) RemovePeerFromUser(user *UserData, peer *PeerData) error {
+	db := app.GetDatabase()
 
-		_, err := db.Exec("DELETE FROM `keywords` WHERE `id` = ?", keywordID)
-		if err != nil {
-			return fmt.Errorf("error remove keyword: %v", err)
-		}
+	dbpeer := models.Peer{ID: peer.DatabaseID}
+	dbuser := models.User{ID: user.DatabaseID}
+
+	if err := db.Model(&dbuser).Association("Peers").Delete(&dbpeer); err != nil {
+		return err
 	}
 
-	if usersKeywords, ok := channel.UsersKeyWords[userID]; ok {
+	if err := db.Where("peer_id = ? AND user_id = ?", peer.DatabaseID, user.DatabaseID).Delete(&models.KeyWords{}).Error; err != nil {
+		return err
+	}
+
+	manager.Mutex.Lock()
+	defer manager.Mutex.Unlock()
+
+	delete(user.Peers, peer.TelegramID)
+
+	if peer, ok := manager.Peers[peer.TelegramID]; ok {
+		delete(peer.UsersKeyWords, user.TelegramID)
+	}
+
+	return nil
+}
+
+func (peer *PeerData) AddKeyword(user *UserData, keyword string) error {
+	db := app.GetDatabase()
+
+	newKeyWord := models.KeyWords{
+		PeerID: peer.DatabaseID,
+		UserID: user.DatabaseID,
+		Word:   keyword,
+	}
+
+	res := db.Create(&newKeyWord)
+	if res.Error != nil {
+		return res.Error
+	}
+
+	usersKeywords, ok := peer.UsersKeyWords[user.TelegramID]
+	if ok {
+		usersKeywords.Keywords[newKeyWord.ID] = keyword
+	} else {
+		usersKeywords = &PeerKeyWords{Keywords: make(map[int64]string)}
+		usersKeywords.Keywords[newKeyWord.ID] = keyword
+		peer.UsersKeyWords[user.TelegramID] = usersKeywords
+	}
+
+	return nil
+}
+
+func (peer *PeerData) RemoveKeyword(userID int64, keywordID int64) error {
+	db := app.GetDatabase()
+
+	if err := db.Delete(&models.KeyWords{}, keywordID).Error; err != nil {
+		return err
+	}
+
+	if usersKeywords, ok := peer.UsersKeyWords[userID]; ok {
 		delete(usersKeywords.Keywords, keywordID)
 	}
 
 	return nil
 }
 
-func (cm *PeersManager) GetUserData(userID int64, create bool) *UserData {
-	if user, ok := cm.Users[userID]; ok {
+func (manager *PeersManager) GetUserData(tguser *tg.User, create bool) *UserData {
+	if user, ok := manager.Users[tguser.ID]; ok {
 		return user
 	} else if create {
-		user := &UserData{Channels: map[int64]*PeerInfo{}} // TODO TelegramID: userID,
-		cm.Users[userID] = user
-		return user
+		return manager.createUser(tguser.Username, tguser.ID, tguser.AccessHash)
 	}
 	return nil
 }
 
-func (channel *PeerInfo) GetUserKeyWords(userID int64) *map[int64]string {
-	if user, ok := channel.UsersKeyWords[userID]; ok {
+func (manager *PeersManager) addToCacheUser(user *models.User) {
+	data := &UserData{
+		DatabaseID: user.ID,
+		TelegramID: user.TelegramID,
+		AccessHash: user.AccessHash,
+		Peers:      make(map[int64]*PeerData),
+	}
+	manager.Users[user.TelegramID] = data
+}
+
+func (manager *PeersManager) addToCachePeers(peer *models.Peer) *PeerData {
+	data := &PeerData{
+		TelegramID:    peer.TelegramID,
+		AccessHash:    peer.AccessHash,
+		DatabaseID:    peer.ID,
+		UserName:      peer.UserName,
+		Title:         peer.Title,
+		LastMsgID:     peer.LastMessageID,
+		IsChannel:     peer.IsChannel,
+		UsersKeyWords: make(map[int64]*PeerKeyWords),
+	}
+	manager.Peers[peer.TelegramID] = data
+
+	for _, userData := range peer.Users {
+		user := manager.Users[userData.TelegramID]
+		user.Peers[peer.TelegramID] = data
+	}
+
+	return data
+}
+
+func (manager *PeersManager) addToCacheKeyWords(keyword *models.KeyWords) {
+	peerData := &keyword.Peer
+
+	peer, ok := manager.Peers[peerData.TelegramID]
+	if !ok {
+		return
+	}
+
+	peerOwnerTelegramID := keyword.User.TelegramID
+	peerKeyWords, ok := peer.UsersKeyWords[peerOwnerTelegramID]
+	if !ok {
+		peerKeyWords = &PeerKeyWords{Keywords: make(map[int64]string)}
+		peer.UsersKeyWords[peerOwnerTelegramID] = peerKeyWords
+	}
+
+	peerKeyWords.Keywords[keyword.ID] = keyword.Word
+}
+
+func (peer *PeerData) GetUserKeyWords(userID int64) *map[int64]string {
+	if user, ok := peer.UsersKeyWords[userID]; ok {
 		return &user.Keywords
 	}
 	return nil
 }
 
-func (channel *PeerInfo) GetUserKeyWordsCount(userID int64) int {
-	keyWords := channel.GetUserKeyWords(userID)
+func (peer *PeerData) GetUserKeyWordsCount(userID int64) int {
+	keyWords := peer.GetUserKeyWords(userID)
 	if keyWords != nil {
 		return len(*keyWords)
 	}
@@ -206,8 +248,16 @@ func (channel *PeerInfo) GetUserKeyWordsCount(userID int64) int {
 	return 0
 }
 
-func (user *UserData) HasChannelByID(ID int64) bool {
-	_, ok := user.Channels[ID]
+func (peer *PeerData) GetTypeName() string {
+	if peer.IsChannel {
+		return "Группа"
+	} else {
+		return "Чат"
+	}
+}
+
+func (user *UserData) HasPeerByID(ID int64) bool {
+	_, ok := user.Peers[ID]
 	return ok
 }
 
@@ -215,10 +265,10 @@ func (user *UserData) GetActivePeerID() int64 {
 	return user.ActivePeerID
 }
 
-func (user *UserData) GetActiveChannel() *PeerInfo {
-	return user.Channels[user.GetActivePeerID()]
+func (user *UserData) GetActivePeer() *PeerData {
+	return user.Peers[user.GetActivePeerID()]
 }
 
 func (user *UserData) GetID() int64 {
-	return user.Peer.UserID
+	return user.TelegramID
 }
