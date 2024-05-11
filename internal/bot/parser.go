@@ -50,7 +50,18 @@ func (bot *Bot) ParseChannels(ctx context.Context) {
 					bot.FindUsersKeyWords(ctx, tgmessage, peerInfo)
 				}
 
-				peerInfo.LastMsgID = messages[0].(*tg.Message).ID
+				/* a very crappy lib */
+				var id int
+				switch v := messages[0].(type) {
+				case *tg.MessageEmpty:
+					id = v.ID
+				case *tg.Message:
+					id = v.ID
+				case *tg.MessageService:
+					id = v.ID
+				}
+
+				peerInfo.LastMsgID = id
 			}
 			cache.Mutex.Unlock()
 		}
@@ -60,6 +71,8 @@ func (bot *Bot) ParseChannels(ctx context.Context) {
 
 func (bot *Bot) ParseIncomingMessage(msg events.MsgContext) {
 	cache := &bot.peersCache
+
+	/* a very crappy lib */
 	var peerID int64
 	switch v := msg.Message.FromID.(type) {
 	case *tg.PeerChat:

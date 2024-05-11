@@ -11,8 +11,6 @@ import (
 
 /* listen messages in a channels */
 func (b *Bot) onNewChannelMessage(ctx context.Context, entities tg.Entities, update *tg.UpdateNewChannelMessage) error {
-	//fmt.Println("onNewChannelMessage", update)
-
 	switch update.Message.(type) {
 	case *tg.Message:
 		m := update.Message.(*tg.Message)
@@ -28,14 +26,26 @@ func (b *Bot) onNewChannelMessage(ctx context.Context, entities tg.Entities, upd
 
 		msg := events.MsgContext{Ctx: ctx, Entities: entities, Update: update, Message: m, PeerChannel: tgChannel}
 		return b.handleChannelMessage(msg)
-	case *tg.MessageService:
+		/* 	case *tg.MessageService:
 		m, ok := update.Message.(*tg.MessageService)
 		if !ok || m.Out {
 			return nil
 		}
-		/* TODO parse add group/channel messages */
-		/* *tg.MessageActionChatAddUser */
+		action, ok := m.Action.(*tg.MessageActionChatAddUser)
+		if !ok {
+			return nil
+		}
+
+		self, err := b.Client.Self(ctx)
+		if err != nil {
+			return err
+		}
+
+		if action.Users[0] != self.ID {
+			return nil
+		} */
 	}
+
 	return nil
 }
 
