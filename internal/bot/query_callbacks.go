@@ -11,7 +11,7 @@ import (
 )
 
 func (b *Bot) callbackAddNewPeer(btn buttonContext) error {
-	rows := []tg.KeyboardButtonRow{CreateBackButton("Отмена", protobufs.MessageID_MainPage, nil)}
+	rows := []tg.KeyboardButtonRow{CreateBackButton("❌ Отмена", protobufs.MessageID_MainPage, nil)}
 	btn.UserData.State = cache.WaitingPeerName
 	_, err := b.API().MessagesEditMessage(btn.Ctx, &tg.MessagesEditMessageRequest{
 		Peer:        &tg.InputPeerUser{UserID: btn.Update.UserID},
@@ -32,7 +32,7 @@ func (b *Bot) callbackMyPeers(btn buttonContext) error {
 		row := tg.KeyboardButtonRow{
 			Buttons: []tg.KeyboardButtonClass{
 				CreateButton(
-					fmt.Sprintf("(%s) %d", peer.Title, peer.GetUserKeyWordsCount(btn.UserData.GetID())),
+					peer.Title,
 					protobufs.MessageID_PeerInfo,
 					&protobufs.ButtonPeerInfo{PeerId: peerID},
 				),
@@ -42,7 +42,7 @@ func (b *Bot) callbackMyPeers(btn buttonContext) error {
 	}
 	rows = append(rows,
 		CreateSpaceButtonRow(),
-		CreateBackButton("Назад", protobufs.MessageID_MainPage, nil),
+		CreateBackButton("↩️ Назад", protobufs.MessageID_MainPage, nil),
 	)
 
 	_, err := b.API().MessagesEditMessage(btn.Ctx, &tg.MessagesEditMessageRequest{
@@ -68,7 +68,7 @@ func (b *Bot) showPeerInfo(ctx context.Context, peerID int64, User *tg.User, use
 		{
 			Buttons: []tg.KeyboardButtonClass{
 				CreateButton(
-					"Добавить новое ключевое слово",
+					"📝 Новое ключевое слово",
 					protobufs.MessageID_AddNewKeyWord,
 					&protobufs.ButtonPeerInfo{PeerId: peerID},
 				),
@@ -94,22 +94,32 @@ func (b *Bot) showPeerInfo(ctx context.Context, peerID int64, User *tg.User, use
 
 	rows = append(rows,
 		CreateSpaceButtonRow(),
-		CreateButtonRow("Удалить канал", protobufs.MessageID_RemovePeer, &protobufs.ButtonPeerInfo{PeerId: peerID}),
-		CreateBackButton("Назад", protobufs.MessageID_MyPeers, nil),
-		CreateBackButton("На главную", protobufs.MessageID_MainPage, nil),
+		CreateButtonRow("🗑️ Удалить канал", protobufs.MessageID_RemovePeer, &protobufs.ButtonPeerInfo{PeerId: peerID}),
+		CreateBackButton("↩️ Назад", protobufs.MessageID_MyPeers, nil),
+		CreateBackButton("⤴️ На главную", protobufs.MessageID_MainPage, nil),
 	)
+
+	createStr := peer.CreatedAt.Format("2006-01-02 15:04:05")
+	updateStr := peer.UpdatedAt.Format("2006-01-02 15:04:05")
 
 	_, err := b.API().MessagesEditMessage(ctx, &tg.MessagesEditMessageRequest{
 		Peer:        &tg.InputPeerUser{UserID: user.GetID()},
 		ID:          user.ActiveMessageID,
 		ReplyMarkup: &tg.ReplyInlineMarkup{Rows: rows},
-		Message:     fmt.Sprintf("Ключевые слова для канала %s(%s)\nНажмите на слово, чтобы его удалить.", peer.Title, peer.UserName),
+		Message: fmt.Sprintf(`
+💬Канал: %s
+📊Ключевых слов: %d
+🗓️Добавлен: %s
+🗓️Дата последнего обновления: %s
+🗑️Нажмите на слово, чтобы его удалить.`, peer.Title, peer.GetUserKeyWordsCount(user.GetID()), createStr, updateStr),
 	})
 
 	return err
 }
 
 func (b *Bot) callbackPeerInfo(btn buttonContext) error {
+	btn.UserData.State = cache.StateNone
+
 	var message protobufs.ButtonPeerInfo
 	proto.Unmarshal(btn.Data, &message)
 	return b.showPeerInfo(btn.Ctx, message.PeerId, btn.User, btn.UserData)
@@ -131,7 +141,10 @@ func (b *Bot) showMainPage(ctx context.Context, user *tg.User, userCache *cache.
 		Peer:        &tg.InputPeerUser{UserID: user.ID},
 		ID:          userCache.ActiveMessageID,
 		ReplyMarkup: buildInitalMenu(),
-		Message:     fmt.Sprintf("Добро пожаловать %s %s", user.FirstName, user.LastName),
+		Message: fmt.Sprintf(`
+⭐Добро пожаловать: %s %s ⭐
+💬Каналов отслеживается: %d 💬
+`, user.FirstName, user.LastName, len(userCache.Peers)),
 	})
 	return err
 }
@@ -152,12 +165,12 @@ func (b *Bot) callbackAddNewKeyWord(btn buttonContext) error {
 
 	btn.UserData.State = cache.WaitingKeyWord
 
-	rows := []tg.KeyboardButtonRow{CreateBackButton("Отмена", protobufs.MessageID_PeerInfo, &message)}
+	rows := []tg.KeyboardButtonRow{CreateBackButton("↩️ Назад", protobufs.MessageID_PeerInfo, &message)}
 	_, err := b.API().MessagesEditMessage(btn.Ctx, &tg.MessagesEditMessageRequest{
 		Peer:        &tg.InputPeerUser{UserID: btn.Update.UserID},
 		ID:          btn.UserData.ActiveMessageID,
 		ReplyMarkup: &tg.ReplyInlineMarkup{Rows: rows},
-		Message:     fmt.Sprintf("Канал: %s (%s)\nМожете писать ключевые слова, каждое слово, новое сообщение\nЧтобы вернутся в меню, нажмите отмена.", peer.Title, peer.UserName),
+		Message:     fmt.Sprintf("💬Канал: %s \n✍Ввод ключевых слов, каждое новым сообщеним.", peer.Title),
 	})
 
 	return err

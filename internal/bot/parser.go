@@ -7,8 +7,10 @@ import (
 	"tg_reader_bot/internal/app"
 	"tg_reader_bot/internal/cache"
 	"tg_reader_bot/internal/events"
+	"tg_reader_bot/internal/models"
 	"time"
 
+	"github.com/gotd/td/telegram/message/styling"
 	"github.com/gotd/td/tg"
 )
 
@@ -16,6 +18,8 @@ func (bot *Bot) ParseChannels(ctx context.Context) {
 	for {
 		app := app.GetContainer()
 		if app.Client != nil {
+			db := app.Database
+
 			tgclient := app.Client.Client
 			cache := &bot.peersCache
 			cache.Mutex.Lock()
@@ -63,6 +67,12 @@ func (bot *Bot) ParseChannels(ctx context.Context) {
 
 				peerInfo.LastMsgID = id
 			}
+
+			for _, peerInfo := range cache.Peers {
+				db.Model(&models.Peer{ID: peerInfo.DatabaseID}).Updates(models.Peer{LastMessageID: peerInfo.LastMsgID})
+				peerInfo.UpdatedAt = time.Now()
+			}
+
 			cache.Mutex.Unlock()
 		}
 		time.Sleep(30 * time.Second)
@@ -101,7 +111,25 @@ func (bot *Bot) FindUsersKeyWords(ctx context.Context, message *tg.Message, peer
 				continue
 			}
 
-			bot.Sender.To(&tg.InputPeerUser{UserID: userID}).Textf(ctx, "Найдено ключевое слово: %s\nСообщение: https://t.me/%s/%d", keyword, peerInfo.UserName, message.ID)
+			var fromID int64
+			switch v := message.FromID.(type) {
+			case *tg.PeerUser:
+				fromID = v.UserID
+			case *tg.PeerChat:
+				fromID = v.ChatID
+			case *tg.PeerChannel:
+				fromID = v.ChannelID
+			}
+
+			entities := []styling.StyledTextOption{
+				styling.Plain("📨 Найдено ключевое слово: "), styling.Bold(keyword), styling.Plain("\n"),
+				styling.Plain("💬 Канал: "), styling.TextURL(peerInfo.Title, fmt.Sprintf("https://t.me/%s/", peerInfo.UserName)), styling.Plain("\n"),
+				styling.TextURL("✉️ Сообщение в чате", fmt.Sprintf("https://t.me/%s/%d", peerInfo.UserName, message.ID)), styling.Plain("\n"),
+				styling.MentionName("🧑🏻‍💻 Пользователь", &tg.InputUser{UserID: fromID}), styling.Plain("\n"),
+				styling.Plain(fmt.Sprintf("📜 Текст: %s", message.Message)),
+			}
+
+			bot.Sender.To(&tg.InputPeerUser{UserID: userID}).StyledText(ctx, entities...)
 			break
 		}
 	}

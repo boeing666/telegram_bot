@@ -2,6 +2,7 @@ package cache
 
 import (
 	"sync"
+	"time"
 )
 
 const (
@@ -24,6 +25,9 @@ type PeerData struct {
 	Title      string
 	LastMsgID  int
 	IsChannel  bool
+
+	CreatedAt time.Time
+	UpdatedAt time.Time
 
 	/* telegram user id -> keywords */
 	UsersKeyWords map[int64]*PeerKeyWords

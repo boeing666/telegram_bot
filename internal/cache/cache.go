@@ -202,6 +202,8 @@ func (manager *PeersManager) addToCachePeers(peer *models.Peer) *PeerData {
 		Title:         peer.Title,
 		LastMsgID:     peer.LastMessageID,
 		IsChannel:     peer.IsChannel,
+		CreatedAt:     peer.CreatedAt,
+		UpdatedAt:     peer.UpdatedAt,
 		UsersKeyWords: make(map[int64]*PeerKeyWords),
 	}
 	manager.Peers[peer.TelegramID] = data

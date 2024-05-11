@@ -26,24 +26,6 @@ func (b *Bot) onNewChannelMessage(ctx context.Context, entities tg.Entities, upd
 
 		msg := events.MsgContext{Ctx: ctx, Entities: entities, Update: update, Message: m, PeerChannel: tgChannel}
 		return b.handleChannelMessage(msg)
-		/* 	case *tg.MessageService:
-		m, ok := update.Message.(*tg.MessageService)
-		if !ok || m.Out {
-			return nil
-		}
-		action, ok := m.Action.(*tg.MessageActionChatAddUser)
-		if !ok {
-			return nil
-		}
-
-		self, err := b.Client.Self(ctx)
-		if err != nil {
-			return err
-		}
-
-		if action.Users[0] != self.ID {
-			return nil
-		} */
 	}
 
 	return nil

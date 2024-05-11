@@ -21,7 +21,7 @@ type Peer struct {
 	IsChannel  bool
 
 	CreatedAt     time.Time
-	LastUpdate    time.Time
+	UpdatedAt     time.Time
 	LastMessageID int
 
 	Users []User `gorm:"many2many:user_peers;"`

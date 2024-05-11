@@ -12,12 +12,12 @@ import (
 func buildInitalMenu() tg.ReplyMarkupClass {
 	return markup.InlineRow(
 		CreateButton(
-			"Добавить канал",
+			"🆕 Добавить канал",
 			protobufs.MessageID_AddNewPeer,
 			nil,
 		),
 		CreateButton(
-			"Мои каналы",
+			"💭 Мои каналы",
 			protobufs.MessageID_MyPeers,
 			nil,
 		),
