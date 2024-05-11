@@ -67,6 +67,32 @@ func (b *Bot) API() *tg.Client {
 	return b.Client.API()
 }
 
+func (bot *Bot) registerCommandsInBot(ctx context.Context) error {
+	botCommands := bot.GetCommands()
+
+	commands := make([]tg.BotCommand, 0, len(botCommands))
+	for key, value := range botCommands {
+		offset := 0
+		if key[0] == '/' {
+			offset = 1
+		}
+
+		commands = append(commands, tg.BotCommand{
+			Command:     key[offset:],
+			Description: value.Description,
+		})
+	}
+
+	if _, err := bot.API().BotsSetBotCommands(ctx, &tg.BotsSetBotCommandsRequest{
+		Scope:    &tg.BotCommandScopeDefault{},
+		Commands: commands,
+	}); err != nil {
+		return errors.Wrap(err, "register commands")
+	}
+
+	return nil
+}
+
 func botRun(ctx context.Context) error {
 	app := app.GetContainer()
 	config := app.Config
@@ -140,12 +166,15 @@ func botRun(ctx context.Context) error {
 				return errors.Wrap(err, "call self")
 			}
 
-			fmt.Println("Bot username:", user.Username)
+			err = bot.registerCommandsInBot(ctx)
+			if err != nil {
+				return err
+			}
 
-			fmt.Println("Listening for updates. Interrupt (Ctrl+C) to stop.")
 			return updatesRecovery.Run(ctx, api, user.ID, updates.AuthOptions{
 				IsBot: user.Bot,
 				OnStart: func(ctx context.Context) {
+					fmt.Println("Bot Started.")
 					bot.peersCache.LoadUsersData()
 					go bot.ParseChannels(ctx)
 				},
