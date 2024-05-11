@@ -4,7 +4,6 @@ import (
 	"tg_reader_bot/internal/events"
 )
 
-/* Parse all commands here */
 func (b *Bot) handlePrivateMessage(msg events.MsgContext) error {
 	if msg.UserData != nil {
 		ok, err := b.stateHandler(msg)
@@ -19,11 +18,11 @@ func (b *Bot) handlePrivateMessage(msg events.MsgContext) error {
 }
 
 func (b *Bot) handleChannelMessage(msg events.MsgContext) error {
-
+	b.ParseIncomingMessage(msg)
 	return nil
 }
 
 func (b *Bot) handleGroupChatMessage(msg events.MsgContext) error {
-
+	b.ParseIncomingMessage(msg)
 	return nil
 }

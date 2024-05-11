@@ -37,14 +37,13 @@ func (b *Bot) enterPeerName(msg events.MsgContext) error {
 
 func (b *Bot) enterKeyWord(msg events.MsgContext) error {
 	user := msg.UserData
-	user.State = cache.StateNone
 
 	b.DeleteMessage(msg.Ctx, msg.Message.ID)
 
 	peer := user.GetActivePeer()
 	if peer == nil {
 		b.Answer(msg.PeerUser).Textf(msg.Ctx, "Ошибка при получении канала.")
-		return b.showMainPage(msg.Ctx, msg.PeerUser, user)
+		return nil
 	}
 
 	err := peer.AddKeyword(user, msg.GetText())
@@ -52,7 +51,7 @@ func (b *Bot) enterKeyWord(msg events.MsgContext) error {
 		return err
 	}
 
-	return b.showPeerInfo(msg.Ctx, user.GetActivePeerID(), msg.PeerUser, user)
+	return nil
 }
 
 func (b *Bot) stateHandler(msg events.MsgContext) (bool, error) {

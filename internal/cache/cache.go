@@ -30,7 +30,7 @@ func (manager *PeersManager) LoadUsersData() {
 	}
 
 	var keyWords []models.KeyWords
-	db.Preload("Peer.User").Find(&keyWords)
+	db.Preload("Peer").Preload("User").Find(&keyWords)
 	for _, keyWord := range keyWords {
 		manager.addToCacheKeyWords(&keyWord)
 	}

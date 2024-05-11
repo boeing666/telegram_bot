@@ -157,7 +157,7 @@ func (b *Bot) callbackAddNewKeyWord(btn buttonContext) error {
 		Peer:        &tg.InputPeerUser{UserID: btn.Update.UserID},
 		ID:          btn.UserData.ActiveMessageID,
 		ReplyMarkup: &tg.ReplyInlineMarkup{Rows: rows},
-		Message:     fmt.Sprintf("Канал: %s (%s)\nВведите ключевое слово или регулярное выражение.", peer.Title, peer.UserName),
+		Message:     fmt.Sprintf("Канал: %s (%s)\nМожете писать ключевые слова, каждое слово, новое сообщение\nЧтобы вернутся в меню, нажмите отмена.", peer.Title, peer.UserName),
 	})
 
 	return err

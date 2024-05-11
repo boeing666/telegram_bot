@@ -13,7 +13,7 @@ type KeyWords struct {
 	Peer   Peer `gorm:"constraint:OnUpdate:CASCADE,OnDelete:NO ACTION;"`
 
 	UserID int64
-	User   User `gorm:"constraint:OnUpdate:CASCADE,OnDelete:NO ACTION;"`
+	User   User `gorm:"foreignKey:UserID;constraint:OnUpdate:CASCADE,OnDelete:NO ACTION;"`
 
 	Word      string
 	CreatedAt time.Time
