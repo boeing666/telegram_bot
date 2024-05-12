@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
 	"tg_reader_bot/internal/app"
 	"tg_reader_bot/internal/cache"
 	"tg_reader_bot/internal/events"
@@ -72,13 +73,8 @@ func (bot *Bot) registerCommandsInBot(ctx context.Context) error {
 
 	commands := make([]tg.BotCommand, 0, len(botCommands))
 	for key, value := range botCommands {
-		offset := 0
-		if key[0] == '/' {
-			offset = 1
-		}
-
 		commands = append(commands, tg.BotCommand{
-			Command:     key[offset:],
+			Command:     strings.TrimPrefix(key, "/"),
 			Description: value.Description,
 		})
 	}
@@ -86,6 +82,15 @@ func (bot *Bot) registerCommandsInBot(ctx context.Context) error {
 	if _, err := bot.API().BotsSetBotCommands(ctx, &tg.BotsSetBotCommandsRequest{
 		Scope:    &tg.BotCommandScopeDefault{},
 		Commands: commands,
+		LangCode: "ru",
+	}); err != nil {
+		return errors.Wrap(err, "register commands")
+	}
+
+	if _, err := bot.API().BotsSetBotCommands(ctx, &tg.BotsSetBotCommandsRequest{
+		Scope:    &tg.BotCommandScopeDefault{},
+		Commands: commands,
+		LangCode: "en",
 	}); err != nil {
 		return errors.Wrap(err, "register commands")
 	}
