@@ -10,29 +10,32 @@ func (b *Bot) enterPeerName(msg events.MsgContext) error {
 	client := app.GetClient()
 
 	user := msg.UserData
-	user.State = cache.StateNone
 
 	b.DeleteMessage(msg.Ctx, msg.Message.ID)
 
 	peer, err := GetChannelByName(client.Client.API(), client.Sender, msg.Ctx, msg.GetText())
 	if err != nil {
-		b.Answer(msg.PeerUser).Text(msg.Ctx, "Ошибка при выполнении. Попробуйте позже.")
+		b.Answer(msg.PeerUser).Text(msg.Ctx, "🛑 Ошибка при выполнении. Попробуйте позже.")
 		return err
 	}
 
 	if user.HasPeerByID(peer.ID) {
-		b.Answer(msg.PeerUser).NoWebpage().Textf(msg.Ctx, "Канал [%s](%s) уже был добавлен.", peer.Title, msg.GetText())
-		return err
+		b.Answer(msg.PeerUser).NoWebpage().Textf(msg.Ctx, "🛑 %s уже добавлен.", peer.Title)
+		return b.showPeerInfo(msg.Ctx, peer.ID, msg.PeerUser, 0, user, true)
 	}
 
 	err = b.peersCache.AddPeerToUser(msg.UserData, peer)
 	if err != nil {
-		b.Answer(msg.PeerUser).Text(msg.Ctx, "Ошибка при выполнении. Попробуйте позже.")
+		b.Answer(msg.PeerUser).Text(msg.Ctx, "🛑 Ошибка при выполнении. Попробуйте позже.")
 		return err
 	}
 
-	b.Answer(msg.PeerUser).NoWebpage().Textf(msg.Ctx, "Канал [%s](%s) успешно добавлен.", peer.Title, msg.GetText())
-	return b.showPeerInfo(msg.Ctx, peer.ID, msg.PeerUser, user)
+	_, err = b.Answer(msg.PeerUser).NoWebpage().Textf(msg.Ctx, "✅ %s успешно добавлен.", peer.Title)
+	if err != nil {
+		return err
+	}
+
+	return b.showPeerInfo(msg.Ctx, peer.ID, msg.PeerUser, 0, user, true)
 }
 
 func (b *Bot) enterKeyWord(msg events.MsgContext) error {
@@ -42,7 +45,7 @@ func (b *Bot) enterKeyWord(msg events.MsgContext) error {
 
 	peer := user.GetActivePeer()
 	if peer == nil {
-		b.Answer(msg.PeerUser).Textf(msg.Ctx, "Ошибка при получении канала.")
+		b.Answer(msg.PeerUser).Textf(msg.Ctx, "🛑 Ошибка при получении канала.")
 		return nil
 	}
 

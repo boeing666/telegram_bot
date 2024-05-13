@@ -73,7 +73,7 @@ func (b *Bot) botCallbackQuery(ctx context.Context, entities tg.Entities, update
 		b.API().MessagesEditMessage(ctx, &tg.MessagesEditMessageRequest{
 			Peer:    &tg.InputPeerUser{UserID: update.UserID},
 			ID:      update.MsgID,
-			Message: "Ошибка обработки сообщения, начните заново /start.",
+			Message: "🛑 Ошибка обработки сообщения, начните заново /start.",
 		})
 		return err
 	}
@@ -82,7 +82,7 @@ func (b *Bot) botCallbackQuery(ctx context.Context, entities tg.Entities, update
 		b.API().MessagesEditMessage(ctx, &tg.MessagesEditMessageRequest{
 			Peer:    &tg.InputPeerUser{UserID: update.UserID},
 			ID:      update.MsgID,
-			Message: "Сообщение устарело, нажмите /start, чтобы начать работать с ботом.",
+			Message: "🛑 Сообщение устарело, нажмите /start, чтобы начать работать с ботом.",
 		})
 		return err
 	}

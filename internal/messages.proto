@@ -9,33 +9,34 @@ enum MessageID {
 	MyPeers = 1;
 	AddNewKeyWord = 2;
 	RemoveKeyWord = 3;
-	NextPeers = 4;
-	PrevPeers = 5;
-	NextKeyWords = 6;
-	PrevKeyWords = 7;
-	PeerInfo = 8;
-	Back = 9;
-	MainPage = 10;
-	RemovePeer = 11;
+	PeerInfo = 4;
+	Back = 5;
+	MainPage = 6;
+	RemovePeer = 7;
 	Spacer = 666;
 }
 
 message MessageHeader {
-  uint64 time = 1;
-  MessageID msgid = 2;
-  bytes msg = 3;
+	uint64 time = 1;
+	MessageID msgid = 2;
+	bytes msg = 3;
 }
 
 message buttonPeerInfo {
-  int64 peer_id = 1;
+	int64 peer_id = 1;
+	int32 current_page = 2;
 }
 
 message buttonMenuBack {
-  MessageID newmenu = 1;
-  optional bytes msg = 3;
+	MessageID newmenu = 1;
+	optional bytes msg = 3;
+}
+
+message buttonMyPeers {
+	int32 current_page = 1;
 }
 
 message buttonRemoveKeyWord {
-  int64 keyword_id = 1;
-  int64 peer_id = 2;
+	int64 keyword_id = 1;
+	buttonPeerInfo peerInfo = 2;
 }

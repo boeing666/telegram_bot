@@ -234,9 +234,9 @@ func (manager *PeersManager) addToCacheKeyWords(keyword *models.KeyWords) {
 	peerKeyWords.Keywords[keyword.ID] = keyword.Word
 }
 
-func (peer *PeerData) GetUserKeyWords(userID int64) *map[int64]string {
+func (peer *PeerData) GetUserKeyWords(userID int64) map[int64]string {
 	if user, ok := peer.UsersKeyWords[userID]; ok {
-		return &user.Keywords
+		return user.Keywords
 	}
 	return nil
 }
@@ -244,18 +244,10 @@ func (peer *PeerData) GetUserKeyWords(userID int64) *map[int64]string {
 func (peer *PeerData) GetUserKeyWordsCount(userID int64) int {
 	keyWords := peer.GetUserKeyWords(userID)
 	if keyWords != nil {
-		return len(*keyWords)
+		return len(keyWords)
 	}
 
 	return 0
-}
-
-func (peer *PeerData) GetTypeName() string {
-	if peer.IsChannel {
-		return "Группа"
-	} else {
-		return "Чат"
-	}
 }
 
 func (user *UserData) HasPeerByID(ID int64) bool {

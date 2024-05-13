@@ -65,12 +65,16 @@ func CreateBackButton(name string, backMenuID protobufs.MessageID, msg proto.Mes
 		button.Msg = bytes
 	}
 
+	return CreateRowButton(name, protobufs.MessageID_Back, button)
+}
+
+func CreateRowButton(name string, btnID protobufs.MessageID, msg proto.Message) tg.KeyboardButtonRow {
 	return tg.KeyboardButtonRow{
 		Buttons: []tg.KeyboardButtonClass{
 			CreateButton(
 				name,
-				protobufs.MessageID_Back,
-				button,
+				btnID,
+				msg,
 			),
 		},
 	}
