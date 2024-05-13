@@ -5,16 +5,16 @@ import (
 )
 
 func (b *Bot) handlePrivateMessage(msg events.MsgContext) error {
-	if msg.UserData != nil {
-		ok, err := b.stateHandler(msg)
-		if err != nil {
-			return err
-		}
-		if ok {
-			return nil
-		}
+	err := b.Dispatch(msg.GetText(), msg)
+	if err != nil {
+		return err
 	}
-	return b.Dispatch(msg.GetText(), msg)
+
+	if msg.UserData == nil {
+		return nil
+	}
+
+	return b.stateHandler(msg)
 }
 
 func (b *Bot) handleChannelMessage(msg events.MsgContext) error {

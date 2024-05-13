@@ -8,11 +8,6 @@ import (
 	"github.com/gotd/td/tg"
 )
 
-type userKeyWords struct {
-	userID int64
-	peer   *PeerData
-}
-
 func (manager *PeersManager) LoadUsersData() {
 	db := app.GetDatabase()
 
@@ -137,6 +132,15 @@ func (manager *PeersManager) RemovePeerFromUser(user *UserData, peer *PeerData) 
 func (peer *PeerData) AddKeyword(user *UserData, keyword string) error {
 	db := app.GetDatabase()
 
+	usersKeywords, ok := peer.UsersKeyWords[user.TelegramID]
+	if ok {
+		for _, v := range usersKeywords.Keywords {
+			if v == keyword {
+				return nil
+			}
+		}
+	}
+
 	newKeyWord := models.KeyWords{
 		PeerID: peer.DatabaseID,
 		UserID: user.DatabaseID,
@@ -148,7 +152,6 @@ func (peer *PeerData) AddKeyword(user *UserData, keyword string) error {
 		return res.Error
 	}
 
-	usersKeywords, ok := peer.UsersKeyWords[user.TelegramID]
 	if ok {
 		usersKeywords.Keywords[newKeyWord.ID] = keyword
 	} else {

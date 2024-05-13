@@ -57,13 +57,13 @@ func (b *Bot) enterKeyWord(msg events.MsgContext) error {
 	return nil
 }
 
-func (b *Bot) stateHandler(msg events.MsgContext) (bool, error) {
+func (b *Bot) stateHandler(msg events.MsgContext) error {
 	switch msg.UserData.State {
 	case cache.WaitingPeerName:
-		return true, b.enterPeerName(msg)
+		return b.enterPeerName(msg)
 	case cache.WaitingKeyWord:
-		return true, b.enterKeyWord(msg)
+		return b.enterKeyWord(msg)
+	default:
+		return nil
 	}
-
-	return false, nil
 }

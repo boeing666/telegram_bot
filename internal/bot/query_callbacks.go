@@ -240,6 +240,7 @@ func (b *Bot) callbackBack(btn buttonContext) error {
 func (b *Bot) showMainPage(ctx context.Context, user *tg.User, userCache *cache.UserData, sendNewMessage bool) error {
 	peersCount := 0
 	if userCache != nil {
+		userCache.State = cache.StateNone
 		peersCount = len(userCache.Peers)
 	}
 
