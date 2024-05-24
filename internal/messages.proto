@@ -24,7 +24,8 @@ message MessageHeader {
 
 message buttonPeerInfo {
 	int64 peer_id = 1;
-	int32 current_page = 2;
+	int32 peer_page = 2;
+	int32 current_page = 3;
 }
 
 message buttonMenuBack {

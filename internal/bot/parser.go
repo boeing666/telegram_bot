@@ -129,7 +129,7 @@ func (bot *Bot) FindUsersKeyWords(ctx context.Context, message *tg.Message, peer
 				styling.Plain(fmt.Sprintf("📜 Текст: %s", message.Message)),
 			}
 
-			bot.Sender.To(&tg.InputPeerUser{UserID: userID}).StyledText(ctx, entities...)
+			bot.Sender.To(&tg.InputPeerUser{UserID: userID}).NoWebpage().StyledText(ctx, entities...)
 			break
 		}
 	}

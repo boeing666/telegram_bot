@@ -12,6 +12,11 @@ import (
 	"google.golang.org/protobuf/proto"
 )
 
+type menuInfo struct {
+	page     int
+	maxPages int
+}
+
 func (b *Bot) callbackAddNewPeer(btn buttonContext) error {
 	rows := []tg.KeyboardButtonRow{CreateBackButton("❌ Отмена", protobufs.MessageID_MainPage, nil)}
 	btn.UserData.State = cache.WaitingPeerName
@@ -29,60 +34,24 @@ func (b *Bot) showMyPeers(ctx context.Context, userCache *cache.UserData, QueryI
 		return b.SetAnswerCallback(ctx, "📄 Список каналов пуст", QueryID)
 	}
 
-	maxPages := 0
-	pageSize := 5
-	maxPages = int(math.Ceil(float64(len(userCache.Peers)) / float64(pageSize)))
-
-	if page < 0 {
-		page = 0
-	} else if page >= maxPages {
-		page = maxPages - 1
-	}
-
 	var rows []tg.KeyboardButtonRow
-	currentPage := fmt.Sprintf("📄 Страница %d/%d", page+1, maxPages)
-	rows = append(rows,
-		CreateButtonRow(currentPage, protobufs.MessageID_Spacer, nil),
-	)
 
-	startIndex := page * pageSize
-	endIndex := startIndex + pageSize
+	pagePeers, menuInfo := buildPage(page, userCache.Peers)
+	rows = append(rows, buildMenuHeader(menuInfo))
 
-	keys := make([]int64, 0, len(userCache.Peers))
-	for k := range userCache.Peers {
-		keys = append(keys, k)
-	}
-
-	sort.Slice(keys, func(i, j int) bool {
-		return keys[i] < keys[j]
-	})
-
-	i := 0
-	for _, id := range keys {
+	for _, id := range pagePeers {
 		peer := userCache.Peers[id]
-		if i >= startIndex && i < endIndex {
-			rows = append(rows, CreateRowButton(
+		rows = append(rows,
+			CreateRowButton(
 				peer.Title,
 				protobufs.MessageID_PeerInfo,
-				&protobufs.ButtonPeerInfo{PeerId: peer.TelegramID, CurrentPage: 0},
-			))
-		}
-		i++
-	}
-
-	if maxPages > 0 {
-		prevPage := int32(max(page-1, 0))
-		nextPage := int32(min(page+1, maxPages-1))
-		pagination := tg.KeyboardButtonRow{
-			Buttons: []tg.KeyboardButtonClass{
-				CreateButton("⬅️", protobufs.MessageID_MyPeers, &protobufs.ButtonMyPeers{CurrentPage: prevPage}),
-				CreateButton("➡️", protobufs.MessageID_MyPeers, &protobufs.ButtonMyPeers{CurrentPage: nextPage}),
-			},
-		}
-		rows = append(rows, pagination)
+				&protobufs.ButtonPeerInfo{PeerPage: int32(page), PeerId: peer.TelegramID, CurrentPage: 0},
+			),
+		)
 	}
 
 	rows = append(rows,
+		buildNavigation(menuInfo, protobufs.MessageID_MyPeers, 0),
 		CreateBackButton("↩️ Назад", protobufs.MessageID_MainPage, nil),
 	)
 
@@ -109,7 +78,7 @@ func (b *Bot) callbackMyPeers(btn buttonContext) error {
 	return b.showMyPeers(btn.Ctx, btn.UserData, btn.Update.QueryID, int(message.CurrentPage), false)
 }
 
-func (b *Bot) showPeerInfo(ctx context.Context, peerID int64, tgUser *tg.User, page int, user *cache.UserData, sendNewMessage bool) error {
+func (b *Bot) showPeerInfo(ctx context.Context, peerID int64, tgUser *tg.User, keywordsPage int, peerPage int32, user *cache.UserData, sendNewMessage bool) error {
 	peer, ok := user.Peers[peerID]
 	if !ok {
 		b.Answer(tgUser).Textf(ctx, "🛑 Ошибка при поиске канала.")
@@ -126,70 +95,28 @@ func (b *Bot) showPeerInfo(ctx context.Context, peerID int64, tgUser *tg.User, p
 		),
 	}
 
-	keywords := peer.GetUserKeyWords(user.GetID())
+	allkeywords := peer.GetUserKeyWords(user.GetID())
 
-	maxPages := 0
-	if keywords != nil {
-		pageSize := 5
-		maxPages = int(math.Ceil(float64(len(keywords)) / float64(pageSize)))
+	pageKeywords, menuInfo := buildPage(keywordsPage, allkeywords)
+	rows = append(rows, buildMenuHeader(menuInfo))
 
-		if page < 0 {
-			page = 0
-		} else if page >= maxPages {
-			page = maxPages - 1
-		}
-
-		currentPage := fmt.Sprintf("📄 Страница %d/%d", page+1, maxPages)
+	for _, id := range pageKeywords {
 		rows = append(rows,
-			CreateButtonRow(currentPage, protobufs.MessageID_Spacer, nil),
+			CreateRowButton(
+				allkeywords[id],
+				protobufs.MessageID_RemoveKeyWord,
+				&protobufs.ButtonRemoveKeyWord{
+					KeywordId: id,
+					PeerInfo:  &protobufs.ButtonPeerInfo{PeerPage: peerPage, PeerId: peerID, CurrentPage: int32(menuInfo.page)},
+				},
+			),
 		)
-
-		startIndex := page * pageSize
-		endIndex := startIndex + pageSize
-
-		keys := make([]int64, 0, len(keywords))
-		for k := range keywords {
-			keys = append(keys, k)
-		}
-
-		sort.Slice(keys, func(i, j int) bool {
-			return keys[i] < keys[j]
-		})
-
-		i := 0
-		for _, id := range keys {
-			keyWord := keywords[id]
-			if i >= startIndex && i < endIndex {
-				rows = append(rows,
-					CreateRowButton(
-						keyWord,
-						protobufs.MessageID_RemoveKeyWord,
-						&protobufs.ButtonRemoveKeyWord{
-							KeywordId: id,
-							PeerInfo:  &protobufs.ButtonPeerInfo{PeerId: peerID, CurrentPage: int32(page)},
-						},
-					),
-				)
-			}
-			i++
-		}
-	}
-
-	if maxPages > 0 {
-		prevPage := int32(max(page-1, 0))
-		nextPage := int32(min(page+1, maxPages-1))
-		pagination := tg.KeyboardButtonRow{
-			Buttons: []tg.KeyboardButtonClass{
-				CreateButton("⬅️", protobufs.MessageID_PeerInfo, &protobufs.ButtonPeerInfo{PeerId: peerID, CurrentPage: prevPage}),
-				CreateButton("➡️", protobufs.MessageID_PeerInfo, &protobufs.ButtonPeerInfo{PeerId: peerID, CurrentPage: nextPage}),
-			},
-		}
-		rows = append(rows, pagination)
 	}
 
 	rows = append(rows,
+		buildNavigation(menuInfo, protobufs.MessageID_PeerInfo, peerID),
 		CreateButtonRow("🗑️ Удалить канал", protobufs.MessageID_RemovePeer, &protobufs.ButtonPeerInfo{PeerId: peerID}),
-		CreateBackButton("↩️ Назад", protobufs.MessageID_MyPeers, nil),
+		CreateBackButton("↩️ Назад", protobufs.MessageID_MyPeers, &protobufs.ButtonMyPeers{CurrentPage: peerPage}),
 		CreateBackButton("⤴️ На главную", protobufs.MessageID_MainPage, nil),
 	)
 
@@ -223,7 +150,7 @@ func (b *Bot) callbackPeerInfo(btn buttonContext) error {
 
 	var message protobufs.ButtonPeerInfo
 	proto.Unmarshal(btn.Data, &message)
-	return b.showPeerInfo(btn.Ctx, message.PeerId, btn.User, int(message.CurrentPage), btn.UserData, false)
+	return b.showPeerInfo(btn.Ctx, message.PeerId, btn.User, int(message.CurrentPage), message.PeerPage, btn.UserData, false)
 }
 
 func (b *Bot) callbackBack(btn buttonContext) error {
@@ -310,7 +237,7 @@ func (b *Bot) callbackRemoveKeyWord(btn buttonContext) error {
 		createNewMenu = true
 	}
 
-	return b.showPeerInfo(btn.Ctx, message.PeerInfo.PeerId, btn.User, int(message.PeerInfo.CurrentPage), btn.UserData, createNewMenu)
+	return b.showPeerInfo(btn.Ctx, message.PeerInfo.PeerId, btn.User, int(message.PeerInfo.CurrentPage), message.PeerInfo.PeerPage, btn.UserData, createNewMenu)
 }
 
 func (b *Bot) callbackRemovePeer(btn buttonContext) error {
@@ -341,14 +268,84 @@ func (b *Bot) callbackSpaceButton(btn buttonContext) error {
 		"Куда вы нажали?", "Больше не нажимайте на кнопку, вы сломаете бота!", "Упс, что-то пошло не так!",
 		"Опять?!", "Вы серьезно?", "Я вас предупреждал!", "О, это становится интересно...",
 		"Теперь это просто забавно!", "Мне нравится ваша настойчивость!", "Вы действительно упорны!", "Продолжайте, не останавливайтесь!",
-		"Нажимайте, как будто от этого зависит жизнь!", "Вы победили, вот ваш приз",
 	}
 
-	/* need funny image or gif */
 	textIndex := (btn.UserData.SecretButtonClicks / 3) % len(texts)
 	btn.UserData.SecretButtonClicks += 1
 
 	return b.SetAnswerCallback(btn.Ctx, texts[textIndex], btn.Update.QueryID)
+}
+
+func buildMenuHeader(menu menuInfo) tg.KeyboardButtonRow {
+	if menu.page == -1 {
+		return tg.KeyboardButtonRow{}
+	}
+	currentPage := fmt.Sprintf("📄 Страница %d/%d", menu.page+1, menu.maxPages)
+	return CreateButtonRow(currentPage, protobufs.MessageID_Spacer, nil)
+}
+
+func buildNavigation(menu menuInfo, messageID protobufs.MessageID, peerID int64) tg.KeyboardButtonRow {
+	var buttons []tg.KeyboardButtonClass
+
+	if menu.page > 0 {
+		prevPage := int32(menu.page - 1)
+		if peerID != 0 {
+			buttons = append(buttons, CreateButton("⬅️", messageID, &protobufs.ButtonPeerInfo{PeerId: peerID, CurrentPage: prevPage}))
+		} else {
+			buttons = append(buttons, CreateButton("⬅️", messageID, &protobufs.ButtonMyPeers{CurrentPage: prevPage}))
+		}
+	}
+
+	if menu.page < menu.maxPages-1 {
+		nextPage := int32(menu.page + 1)
+		if peerID != 0 {
+			buttons = append(buttons, CreateButton("➡️", messageID, &protobufs.ButtonPeerInfo{PeerId: peerID, CurrentPage: nextPage}))
+		} else {
+			buttons = append(buttons, CreateButton("➡️", messageID, &protobufs.ButtonMyPeers{CurrentPage: nextPage}))
+		}
+	}
+
+	return tg.KeyboardButtonRow{
+		Buttons: buttons,
+	}
+}
+
+func buildPage[V any](curpage int, data map[int64]V) ([]int64, menuInfo) {
+	maxPages := 0
+	pageSize := 5
+
+	maxPages = int(math.Ceil(float64(len(data)) / float64(pageSize)))
+
+	if curpage < 0 {
+		curpage = 0
+	} else if curpage >= maxPages {
+		curpage = maxPages - 1
+	}
+
+	startIndex := curpage * pageSize
+	endIndex := startIndex + pageSize
+
+	keys := make([]int64, 0, len(data))
+
+	for k := range data {
+		keys = append(keys, k)
+	}
+
+	sort.Slice(keys, func(i, j int) bool {
+		return keys[i] < keys[j]
+	})
+
+	values := make([]int64, 0, pageSize)
+
+	i := 0
+	for _, id := range keys {
+		if i >= startIndex && i < endIndex {
+			values = append(values, id)
+		}
+		i++
+	}
+
+	return values, menuInfo{page: curpage, maxPages: maxPages}
 }
 
 func (b *Bot) registerQueryCallbacks() {

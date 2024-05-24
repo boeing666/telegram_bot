@@ -21,7 +21,7 @@ func (b *Bot) enterPeerName(msg events.MsgContext) error {
 
 	if user.HasPeerByID(peer.ID) {
 		b.Answer(msg.PeerUser).NoWebpage().Textf(msg.Ctx, "🛑 %s уже добавлен.", peer.Title)
-		return b.showPeerInfo(msg.Ctx, peer.ID, msg.PeerUser, 0, user, true)
+		return b.showPeerInfo(msg.Ctx, peer.ID, msg.PeerUser, 0, 0, user, true)
 	}
 
 	err = b.peersCache.AddPeerToUser(msg.UserData, peer)
@@ -35,7 +35,7 @@ func (b *Bot) enterPeerName(msg events.MsgContext) error {
 		return err
 	}
 
-	return b.showPeerInfo(msg.Ctx, peer.ID, msg.PeerUser, 0, user, true)
+	return b.showPeerInfo(msg.Ctx, peer.ID, msg.PeerUser, 0, 0, user, true)
 }
 
 func (b *Bot) enterKeyWord(msg events.MsgContext) error {
