@@ -1,4 +1,11 @@
 # 🤖 Telegram bot 
+
+[![CC BY-NC-SA 4.0][cc-by-nc-sa-shield]][cc-by-nc-sa]
+
+[cc-by-nc-sa]: http://creativecommons.org/licenses/by-nc-sa/4.0/
+[cc-by-nc-sa-image]: https://licensebuttons.net/l/by-nc-sa/4.0/88x31.png
+[cc-by-nc-sa-shield]: https://img.shields.io/badge/License-CC%20BY--NC--SA%204.0-lightgrey.svg
+
 [![stable](https://img.shields.io/badge/-stable-brightgreen?style=flat-square)](https://go-faster.org/docs/projects/status#stable)
 ![GitHub Actions Workflow Status](https://img.shields.io/github/actions/workflow/status/boeing666/telegram_bot/.github%2Fworkflows%2Fgo.yml?style=flat-square)
 [![Release](https://img.shields.io/github/release/boeing666/telegram_bot.svg?style=flat-square)](https://github.com/boeing666/telegram_bot/releases)
