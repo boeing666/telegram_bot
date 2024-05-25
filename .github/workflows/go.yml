@@ -3,35 +3,37 @@ name: "[Linux] Build"
 on:
   push:
     tags:
-      - 'v*'
+      - '*'
   pull_request:
     branches: [main]
   repository_dispatch:
     types: [build]
 
 jobs:
-  build:
-    runs-on: ubuntu-latest
+  release:
+    strategy:
+      matrix:
+        include:
+          - os: ubuntu-latest
+            artifact_name: ${{ github.event.repository.name }}
+            asset_name: ${{ github.event.repository.name }}-linux-amd64
+          - os: windows-latest
+            artifact_name: ${{ github.event.repository.name }}.exe
+            asset_name: ${{ github.event.repository.name }}-windows-amd64.exe
+    runs-on: ${{ matrix.os }}  
     timeout-minutes: 5
     steps:
-    - name: Check out container source code
+    - name: Checkout code
       uses: actions/checkout@v3
-      with:
-        repository: boeing666/telegram_bot
-        ref: main
 
     - name: Set up Go
       uses: magnetikonline/action-golang-cache@v5
       with:
         go-version-file: go.mod
 
-    - name: Prepare environment
-      run: |
-        mkdir ./build
-    
     - name: Build executable
       run: |
-        go build -o ./build/ .
+        go build
       
     - name: Archive production artifacts
       uses: actions/upload-artifact@v3
@@ -41,17 +43,10 @@ jobs:
           ./build/
         retention-days: 7
 
-    - name: Create Release
-      id: create_release
-      uses: actions/create-release@v1
-      env:
-        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+    - name: Upload binaries to release
+      uses: svenstaro/upload-release-action@v2
       with:
-        tag_name: ${{ github.ref }}
-        release_name: Release ${{ github.ref }}
-        body: |
-          Changes in this Release
-          - First Change
-          - Second Change
-        draft: false
-        prerelease: false
+        repo_token: ${{ secrets.GITHUB_TOKEN }}
+        file: target/release/${{ matrix.artifact_name }}
+        asset_name: ${{ matrix.asset_name }}
+        tag: ${{ github.ref }}
