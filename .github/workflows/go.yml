@@ -1,0 +1,42 @@
+name: "[Linux] Build"
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  repository_dispatch:
+    types: [build]
+
+jobs:
+
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+    - name: Check out container source code
+      uses: actions/checkout@v3
+      with:
+        repository: boeing666/telegram_bot
+        ref: main
+
+    - name: Set up Go
+      uses: magnetikonline/action-golang-cache@v5
+      with:
+        go-version-file: go.mod
+
+    - name: Prepare environment
+      run: |
+        mkdir ./build
+    
+    - name: Build executable
+      run: |
+        go build -o ./build/ .
+      
+    - name: Archive production artifacts
+      uses: actions/upload-artifact@v3
+      with:
+        name: Binary
+        path: |
+          ./build/
+        retention-days: 7
