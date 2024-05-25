@@ -29,20 +29,12 @@ jobs:
 
     - name: Build executable
       run: |
-        go build
-      
-    - name: Archive production artifacts
-      uses: actions/upload-artifact@v3
-      with:
-        name: Binary
-        path: |
-          ./build/
-        retention-days: 7
+        go build -o ${{ matrix.asset_name }}
 
     - name: Upload binaries to release
       uses: svenstaro/upload-release-action@v2
       with:
         repo_token: ${{ secrets.GITHUB_TOKEN }}
-        file: target/release/${{ matrix.artifact_name }}
+        file: ${{ matrix.asset_name }}
         asset_name: ${{ matrix.asset_name }}
         tag: ${{ github.ref }}
