@@ -1,13 +1,9 @@
-name: "[Linux] Build"
+name: Release
 
 on:
   push:
     tags:
       - '*'
-  pull_request:
-    branches: [main]
-  repository_dispatch:
-    types: [build]
 
 jobs:
   release:
