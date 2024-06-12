@@ -74,6 +74,8 @@ func (bot *Bot) ParseChannels(ctx context.Context) {
 			}
 
 			cache.Mutex.Unlock()
+
+			time.Sleep(5 * time.Second)
 		}
 		time.Sleep(30 * time.Second)
 	}
